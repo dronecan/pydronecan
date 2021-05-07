@@ -740,6 +740,9 @@ class SLCAN(AbstractDriver):
 
             # Handling the received thing
             if isinstance(obj, CANFrame):
+                if 'darwin' in sys.platform:
+                    # hack for macos as separate io_process causes to have different monotonic time reference
+                    obj.ts_monotonic = time.monotonic()
                 self._rx_hook(obj)
                 return obj
 
