@@ -303,7 +303,7 @@ class Node(Scheduler):
         if not raw_frame.extended:
             return
 
-        frame = transport.Frame(raw_frame.id, raw_frame.data, raw_frame.ts_monotonic, raw_frame.ts_real)
+        frame = transport.Frame(raw_frame.id, raw_frame.data, raw_frame.ts_monotonic, raw_frame.ts_real, raw_frame.canfd)
 
         transfer_frames = self._transfer_manager.receive_frame(frame)
         if not transfer_frames:
