@@ -236,23 +236,28 @@ class RxWorker:
         if line_len < 1:
             return
 
+        canfd = False
         # Checking the header, ignore all irrelevant lines
         if line[0] == b'T'[0]:
             id_len = 8
         elif line[0] == b't'[0]:
             id_len = 3
+        elif line[0] == b'D'[0]:
+            id_len = 8
+            canfd = True
         else:
             return
 
         # Parsing ID and DLC
         packet_id = int(line[1:1 + id_len], 16)
-        if self.PY2_COMPAT:
-            packet_len = int(line[1 + id_len])              # This version is horribly slow
-        else:
-            packet_len = line[1 + id_len] - 48              # Py3 version is faster
+        packet_len = CANFrame.dlc_to_datalength(int(chr(line[1 + id_len]), 16))
 
-        if packet_len > 8 or packet_len < 0:
-            raise DriverError('Invalid packet length')
+        if canfd:
+            if packet_len > 64 or packet_len < 0:
+                raise DriverError('Invalid packet length')
+        else:
+            if packet_len > 8 or packet_len < 0:
+                raise DriverError('Invalid packet length', packet_len, line[1 + id_len])
 
         # Parsing the payload, detecting timestamp
         # <type> <id> <dlc> <data>         [timestamp]
@@ -270,7 +275,7 @@ class RxWorker:
             ts_mono = local_ts_mono
             ts_real = local_ts_real
 
-        frame = CANFrame(packet_id, packet_data, (id_len == 8), ts_monotonic=ts_mono, ts_real=ts_real)
+        frame = CANFrame(packet_id, packet_data, (id_len == 8), ts_monotonic=ts_mono, ts_real=ts_real, canfd=canfd)
         self._output_queue.put_nowait(frame)
 
     def _process_many_slcan_lines(self, lines, ts_mono, ts_real):

@@ -624,11 +624,12 @@ class CompoundValue(BaseValue):
 
 
 class Frame(object):
-    def __init__(self, message_id, data, ts_monotonic=None, ts_real=None):  # @ReservedAssignment
+    def __init__(self, message_id, data, ts_monotonic=None, ts_real=None, canfd=False):  # @ReservedAssignment
         self.message_id = message_id
         self.bytes = bytearray(data)
         self.ts_monotonic = ts_monotonic
         self.ts_real = ts_real
+        self.canfd = canfd
 
     @property
     def transfer_key(self):
@@ -822,9 +823,12 @@ class Transfer(object):
             self.payload = datatype(_mode="request" if self.request_not_response else "response")
         else:
             self.payload = datatype()
-
+        tao = True
+        for frame in frames:
+            if frame.canfd:    # we are in CANFD world can't use tao
+                tao = False
         # noinspection PyProtectedMember
-        self.payload._unpack(bits_from_bytes(payload_bytes))
+        self.payload._unpack(bits_from_bytes(payload_bytes), tao)
 
     @property
     def key(self):
