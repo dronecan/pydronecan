@@ -94,6 +94,9 @@ def bits_from_bytes(s):
 
 
 def bytes_from_bits(s):
+    #pad bytes if not a multiple of 8
+    if len(s) % 8 != 0:
+        s += '0' * (8 - len(s) % 8)
     return bytearray(int(s[i:i + 8], 2) for i in range(0, len(s), 8))
 
 
