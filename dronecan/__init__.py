@@ -8,7 +8,7 @@
 #
 
 """
-Python UAVCAN package.
+Python DroneCAN package.
 Supported Python versions: 3.2+, 2.7.
 """
 
@@ -27,7 +27,7 @@ except AttributeError:
     try:
         # noinspection PyPackageRequirements,PyUnresolvedReferences
         import monotonic                    # 3rd party dependency for old versions @UnresolvedImport
-        # monotonic_wrapper is a temporary work around for https://github.com/UAVCAN/pyuavcan/issues/22
+        # monotonic_wrapper is a temporary work around for https://github.com/DroneCAN/pydronecan/issues/22
         # monotonic_wrapper stops arguments being passed to monotonic.monotonic
         def monotonic_wrapper(*args, **kwargs):
             return monotonic.monotonic()
@@ -42,21 +42,21 @@ In order to fix this problem, consider either option:
     pip install monotonic''', file=sys.stderr)
 
 
-class UAVCANException(Exception):
+class DroneCANException(Exception):
     pass
 
 
 from .version import __version__
-import uavcan.node as node
-from uavcan.node import make_node
-from uavcan.driver import make_driver
-import uavcan.dsdl as dsdl
-import uavcan.transport as transport
-from uavcan.transport import get_uavcan_data_type, \
+import dronecan.node as node
+from dronecan.node import make_node
+from dronecan.driver import make_driver
+import dronecan.dsdl as dsdl
+import dronecan.transport as transport
+from dronecan.transport import get_dronecan_data_type, \
     get_active_union_field, switch_union_field, is_union, \
     get_constants, get_fields, \
     is_request, is_response
-from uavcan.introspect import value_to_constant_name, to_yaml
+from dronecan.introspect import value_to_constant_name, to_yaml
 
 
 TRANSFER_PRIORITY_LOWEST = 31
@@ -71,7 +71,7 @@ class Module(object):
 
 
 class Namespace(object):
-    """Provides a nice object-based way to look up UAVCAN data types."""
+    """Provides a nice object-based way to look up DroneCAN data types."""
 
     def __init__(self):
         self.__namespaces = set()
@@ -124,8 +124,8 @@ def load_dsdl(*paths, **args):
     try:
         if not args.get("exclude_dist", None):
             dsdl_path = pkg_resources.resource_filename(__name__, "dsdl_files")  # @UndefinedVariable
-            paths = [os.path.join(dsdl_path, "uavcan")] + paths
-            custom_path = os.path.join(os.path.expanduser("~"), "uavcan_vendor_specific_types")
+            paths = [os.path.join(dsdl_path, "dronecan")] + paths
+            custom_path = os.path.join(os.path.expanduser("~"), "dronecan_vendor_specific_types")
             if os.path.isdir(custom_path):
                 paths += [f for f in [os.path.join(custom_path, f) for f in os.listdir(custom_path)]
                           if os.path.isdir(f)]
@@ -161,13 +161,13 @@ def load_dsdl(*paths, **args):
             dtype.Request = create_instance_closure(dtype, _mode='request')
             dtype.Response = create_instance_closure(dtype, _mode='response')
 
-    namespace = root_namespace._path("uavcan")
+    namespace = root_namespace._path("dronecan")
     for top_namespace in namespace._namespaces():
         MODULE.__dict__[str(top_namespace)] = namespace.__dict__[top_namespace]
 
     MODULE.__dict__["thirdparty"] = Namespace()
     for ext_namespace in root_namespace._namespaces():
-        if str(ext_namespace) != "uavcan":
+        if str(ext_namespace) != "dronecan":
             # noinspection PyUnresolvedReferences
             MODULE.thirdparty.__dict__[str(ext_namespace)] = root_namespace.__dict__[ext_namespace]
 
@@ -189,4 +189,4 @@ load_dsdl()
 
 
 # Importing modules that may be dependent on the standard DSDL types
-import uavcan.app as app
+import dronecan.app as app

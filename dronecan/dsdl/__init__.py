@@ -8,8 +8,8 @@
 #
 
 """
-This module implements a fully compliant UAVCAN DSDL parser.
-Please read the specs at http://uavcan.org.
+This module implements a fully compliant DroneCAN DSDL parser.
+Please read the specs at http://dronecan.org.
 """
 
 from .parser import Parser, parse_namespaces, \

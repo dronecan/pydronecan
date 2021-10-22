@@ -8,7 +8,7 @@
 #
 
 import unittest
-from uavcan import driver
+from dronecan import driver
 
 
 # TODO

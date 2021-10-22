@@ -10,13 +10,13 @@
 import time
 import sys
 from logging import getLogger
-from .. import UAVCANException
+from .. import DroneCANException
 
 
 logger = getLogger(__name__)
 
 
-class DriverError(UAVCANException):
+class DriverError(DroneCANException):
     pass
 
 

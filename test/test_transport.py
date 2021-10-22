@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2014-2015  UAVCAN Development Team  <uavcan.org>
+# Copyright (C) 2014-2015  UAVCAN Development Team  <dronecan.org>
 #
 # This software is distributed under the terms of the MIT License.
 #
@@ -8,8 +8,8 @@
 #
 
 import unittest
-from uavcan import transport
-from uavcan.dsdl import parser
+from dronecan import transport
+from dronecan.dsdl import parser
 
 
 class TestBitsFromBytes(unittest.TestCase):
@@ -357,7 +357,7 @@ class TestArrayBasic(unittest.TestCase):
         custom_type = parser.CompoundType(
             "CustomType",
             parser.CompoundType.KIND_MESSAGE,
-            "source.uavcan",
+            "source.dronecan",
             0,
             (0,0),
             ""
@@ -462,7 +462,7 @@ class TestVoid(unittest.TestCase):
         self.custom_type = parser.CompoundType(
             "CustomType",
             parser.CompoundType.KIND_MESSAGE,
-            "source.uavcan",
+            "source.dronecan",
             0,
             (0,0),
             ""
@@ -516,7 +516,7 @@ class TestMessageUnion(unittest.TestCase):
         self.custom_type = parser.CompoundType(
             "CustomType",
             parser.CompoundType.KIND_MESSAGE,
-            "source.uavcan",
+            "source.dronecan",
             0,
             (0,0),
             ""
@@ -582,18 +582,18 @@ class TestMessageUnion(unittest.TestCase):
 
 class TestAssignment(unittest.TestCase):
     def setUp(self):
-        import uavcan
-        self.a = uavcan.protocol.GetNodeInfo.Response()
+        import dronecan
+        self.a = dronecan.protocol.GetNodeInfo.Response()
 
     def test_compound_assignment(self):
-        import uavcan
+        import dronecan
 
         orig_status = self.a.status
         print(orig_status)
         self.assertEqual(orig_status.mode, 0)
         self.assertEqual(orig_status.uptime_sec, 0)
 
-        self.a.status = uavcan.protocol.NodeStatus(mode=3, uptime_sec=12345)
+        self.a.status = dronecan.protocol.NodeStatus(mode=3, uptime_sec=12345)
 
         new_status = self.a.status
         print(new_status)

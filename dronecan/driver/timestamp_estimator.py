@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2014-2016  UAVCAN Development Team  <uavcan.org>
+# Copyright (C) 2014-2016  UAVCAN Development Team  <dronecan.org>
 #
 # This software is distributed under the terms of the MIT License.
 #
