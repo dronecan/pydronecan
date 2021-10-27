@@ -22,7 +22,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 class Signature:
     '''
-    This class implements the UAVCAN DSDL signature hash function. Please refer to the specification for details.
+    This class implements the DroneCAN DSDL signature hash function. Please refer to the specification for details.
     '''
     MASK64 = 0xFFFFFFFFFFFFFFFF
     POLY = 0x42F0E1EBA9EA3693

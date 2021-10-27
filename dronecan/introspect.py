@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2014-2016  UAVCAN Development Team  <uavcan.org>
+# Copyright (C) 2014-2016  UAVCAN Development Team  <dronecan.org>
 #
 # This software is distributed under the terms of the MIT License.
 #
@@ -9,8 +9,8 @@
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 import os
-import uavcan
-from uavcan.transport import CompoundValue, PrimitiveValue, ArrayValue, VoidValue
+import dronecan
+from dronecan.transport import CompoundValue, PrimitiveValue, ArrayValue, VoidValue
 try:
     from io import StringIO
 except ImportError:
@@ -26,8 +26,8 @@ def _to_json_compatible_object_impl(obj):
     # CompoundValue
     if isinstance(obj, CompoundValue):
         output = dict()
-        for field_name, field in uavcan.get_fields(obj).items():
-            if uavcan.is_union(obj) and uavcan.get_active_union_field(obj) != field_name:
+        for field_name, field in dronecan.get_fields(obj).items():
+            if dronecan.is_union(obj) and dronecan.get_active_union_field(obj) != field_name:
                 continue
             if isinstance(field, VoidValue):
                 continue
@@ -37,7 +37,7 @@ def _to_json_compatible_object_impl(obj):
 
     # ArrayValue
     elif isinstance(obj, ArrayValue):
-        t = uavcan.get_uavcan_data_type(obj)
+        t = dronecan.get_dronecan_data_type(obj)
         if t.value_type.category == t.value_type.CATEGORY_PRIMITIVE:
             def is_nice_character(ch):
                 if ch.is_printable() or ch.isspace():
@@ -76,8 +76,8 @@ def _to_json_compatible_object_impl(obj):
 
 def to_json_compatible_object(obj):
     """
-    This function returns a representation of a UAVCAN structure (message, request, or response), or
-    a DSDL entity (array or primitive), or a UAVCAN transfer, as a structure easily able to be
+    This function returns a representation of a DroneCAN structure (message, request, or response), or
+    a DSDL entity (array or primitive), or a DroneCAN transfer, as a structure easily able to be
     transformed into json or json-like serialization
     Args:
         obj:            Object to convert.
@@ -111,7 +111,7 @@ def to_json_compatible_object(obj):
         return _to_json_compatible_object_impl(obj)
 
 
-def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None):
+def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, dronecan_type=None):
     buf = StringIO()
 
     def write(fmt, *args):
@@ -122,7 +122,7 @@ def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None)
 
     # Decomposing PrimitiveValue to value and type. This is ugly but it's by design...
     if isinstance(obj, PrimitiveValue):
-        uavcan_type = uavcan.get_uavcan_data_type(obj)
+        dronecan_type = dronecan.get_dronecan_data_type(obj)
         obj = obj.value
 
     # CompoundValue
@@ -130,8 +130,8 @@ def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None)
         first_field = True
 
         # Rendering all fields than can be rendered
-        for field_name, field in uavcan.get_fields(obj).items():
-            if uavcan.is_union(obj) and uavcan.get_active_union_field(obj) != field_name:
+        for field_name, field in dronecan.get_fields(obj).items():
+            if dronecan.is_union(obj) and dronecan.get_active_union_field(obj) != field_name:
                 continue
             if isinstance(field, VoidValue):
                 continue
@@ -142,14 +142,14 @@ def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None)
             write('%s: %s', field_name, rendered_field)
 
         # Special case - empty non-union struct is rendered as empty map
-        if first_field and not uavcan.is_union(obj):
+        if first_field and not dronecan.is_union(obj):
             if indent_level > 0:
                 indent_newline()
             write('{}')
 
     # ArrayValue
     elif isinstance(obj, ArrayValue):
-        t = uavcan.get_uavcan_data_type(obj)
+        t = dronecan.get_dronecan_data_type(obj)
         if t.value_type.category == t.value_type.CATEGORY_PRIMITIVE:
             def is_nice_character(ch):
                 if 32 <= ch <= 126:
@@ -158,7 +158,7 @@ def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None)
                     return True
                 return False
 
-            as_bytes = '[%s]' % ', '.join([_to_yaml_impl(x, indent_level=indent_level + 1, uavcan_type=t.value_type)
+            as_bytes = '[%s]' % ', '.join([_to_yaml_impl(x, indent_level=indent_level + 1, dronecan_type=t.value_type)
                                           for x in obj])
             if t.is_string_like and all(map(is_nice_character, obj)):
                 write('%r # ', obj.decode())
@@ -169,16 +169,16 @@ def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None)
             else:
                 for x in obj:
                     indent_newline()
-                    write('- %s', _to_yaml_impl(x, indent_level=indent_level + 1, uavcan_type=t.value_type))
+                    write('- %s', _to_yaml_impl(x, indent_level=indent_level + 1, dronecan_type=t.value_type))
 
     # Primitive types
     elif isinstance(obj, float):
-        assert uavcan_type is not None
+        assert dronecan_type is not None
         float_fmt = {
             16: '%.4f',
             32: '%.6f',
             64: '%.9f',
-        }[uavcan_type.bitlen]
+        }[dronecan_type.bitlen]
         write(float_fmt, obj)
     elif isinstance(obj, bool):
         write('%s', 'true' if obj else 'false')
@@ -202,8 +202,8 @@ def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None)
 
 def to_yaml(obj):
     """
-    This function returns correct YAML representation of a UAVCAN structure (message, request, or response), or
-    a DSDL entity (array or primitive), or a UAVCAN transfer, with comments for human benefit.
+    This function returns correct YAML representation of a DroneCAN structure (message, request, or response), or
+    a DSDL entity (array or primitive), or a DroneCAN transfer, with comments for human benefit.
     Args:
         obj:            Object to convert.
 
@@ -235,27 +235,27 @@ def to_yaml(obj):
 
 def value_to_constant_name(struct, field_name, keep_literal=False):
     """
-    This function accepts a UAVCAN struct (message, request, or response), and a field name; and returns
+    This function accepts a DroneCAN struct (message, request, or response), and a field name; and returns
     the name of constant or bit mask that match the value. If no match could be established, the literal
     value will be returned as is.
     Args:
-        struct:         UAVCAN struct to work with
+        struct:         DroneCAN struct to work with
         field_name:     Name of the field to work with
         keep_literal:   Whether to include the input integer value in the output string
 
     Returns: Name of the constant or flags if match could be detected, otherwise integer as is.
     """
     # Extracting constants
-    uavcan_type = uavcan.get_uavcan_data_type(struct)
-    if uavcan.is_request(struct):
-        consts = uavcan_type.request_constants
-        fields = uavcan_type.request_fields
-    elif uavcan.is_response(struct):
-        consts = uavcan_type.response_constants
-        fields = uavcan_type.response_fields
+    dronecan_type = dronecan.get_dronecan_data_type(struct)
+    if dronecan.is_request(struct):
+        consts = dronecan_type.request_constants
+        fields = dronecan_type.request_fields
+    elif dronecan.is_response(struct):
+        consts = dronecan_type.response_constants
+        fields = dronecan_type.response_fields
     else:
-        consts = uavcan_type.constants
-        fields = uavcan_type.fields
+        consts = dronecan_type.constants
+        fields = dronecan_type.fields
 
     assert len(fields) > 0
 
@@ -328,14 +328,14 @@ def value_to_constant_name(struct, field_name, keep_literal=False):
 
 if __name__ == '__main__':
     # to_yaml()
-    print(to_yaml(uavcan.protocol.NodeStatus()))
+    print(to_yaml(dronecan.protocol.NodeStatus()))
 
-    info = uavcan.protocol.GetNodeInfo.Response(name='legion')
+    info = dronecan.protocol.GetNodeInfo.Response(name='legion')
     info.hardware_version.certificate_of_authenticity = b'\x01\x02\x03\xff'
     print(to_yaml(info))
 
-    lights = uavcan.equipment.indication.LightsCommand()
-    lcmd = uavcan.equipment.indication.SingleLightCommand(light_id=123)
+    lights = dronecan.equipment.indication.LightsCommand()
+    lcmd = dronecan.equipment.indication.SingleLightCommand(light_id=123)
     lcmd.color.red = 1
     lcmd.color.green = 2
     lcmd.color.blue = 3
@@ -344,58 +344,58 @@ if __name__ == '__main__':
     lights.commands.append(lcmd)
     print(to_yaml(lights))
 
-    print(to_yaml(uavcan.equipment.power.BatteryInfo()))
-    print(to_yaml(uavcan.protocol.param.Empty()))
+    print(to_yaml(dronecan.equipment.power.BatteryInfo()))
+    print(to_yaml(dronecan.protocol.param.Empty()))
 
-    getset = uavcan.protocol.param.GetSet.Response()
+    getset = dronecan.protocol.param.GetSet.Response()
     print(to_yaml(getset))
-    uavcan.switch_union_field(getset.value, 'empty')
+    dronecan.switch_union_field(getset.value, 'empty')
     print(to_yaml(getset))
 
     # value_to_constant_name()
     print(value_to_constant_name(
-        uavcan.protocol.NodeStatus(mode=uavcan.protocol.NodeStatus().MODE_OPERATIONAL),
+        dronecan.protocol.NodeStatus(mode=dronecan.protocol.NodeStatus().MODE_OPERATIONAL),
         'mode'
     ))
     print(value_to_constant_name(
-        uavcan.protocol.NodeStatus(mode=uavcan.protocol.NodeStatus().HEALTH_OK),
+        dronecan.protocol.NodeStatus(mode=dronecan.protocol.NodeStatus().HEALTH_OK),
         'health'
     ))
     print(value_to_constant_name(
-        uavcan.equipment.range_sensor.Measurement(reading_type=uavcan.equipment.range_sensor.Measurement()
+        dronecan.equipment.range_sensor.Measurement(reading_type=dronecan.equipment.range_sensor.Measurement()
                                                   .READING_TYPE_TOO_FAR),
         'reading_type'
     ))
     print(value_to_constant_name(
-        uavcan.protocol.param.ExecuteOpcode.Request(opcode=uavcan.protocol.param.ExecuteOpcode.Request().OPCODE_ERASE),
+        dronecan.protocol.param.ExecuteOpcode.Request(opcode=dronecan.protocol.param.ExecuteOpcode.Request().OPCODE_ERASE),
         'opcode'
     ))
     print(value_to_constant_name(
-        uavcan.protocol.file.Error(value=uavcan.protocol.file.Error().ACCESS_DENIED),
+        dronecan.protocol.file.Error(value=dronecan.protocol.file.Error().ACCESS_DENIED),
         'value'
     ))
     print(value_to_constant_name(
-        uavcan.equipment.power.BatteryInfo(status_flags=
-                                           uavcan.equipment.power.BatteryInfo().STATUS_FLAG_NEED_SERVICE),
+        dronecan.equipment.power.BatteryInfo(status_flags=
+                                           dronecan.equipment.power.BatteryInfo().STATUS_FLAG_NEED_SERVICE),
         'status_flags'
     ))
     print(value_to_constant_name(
-        uavcan.equipment.power.BatteryInfo(status_flags=
-                                           uavcan.equipment.power.BatteryInfo().STATUS_FLAG_NEED_SERVICE |
-                                           uavcan.equipment.power.BatteryInfo().STATUS_FLAG_TEMP_HOT |
-                                           uavcan.equipment.power.BatteryInfo().STATUS_FLAG_CHARGED),
+        dronecan.equipment.power.BatteryInfo(status_flags=
+                                           dronecan.equipment.power.BatteryInfo().STATUS_FLAG_NEED_SERVICE |
+                                           dronecan.equipment.power.BatteryInfo().STATUS_FLAG_TEMP_HOT |
+                                           dronecan.equipment.power.BatteryInfo().STATUS_FLAG_CHARGED),
         'status_flags'
     ))
     print(value_to_constant_name(
-        uavcan.protocol.AccessCommandShell.Response(flags=
-                                                    uavcan.protocol.AccessCommandShell.Response().FLAG_SHELL_ERROR |
-                                                    uavcan.protocol.AccessCommandShell.Response().
+        dronecan.protocol.AccessCommandShell.Response(flags=
+                                                    dronecan.protocol.AccessCommandShell.Response().FLAG_SHELL_ERROR |
+                                                    dronecan.protocol.AccessCommandShell.Response().
                                                     FLAG_HAS_PENDING_STDOUT),
         'flags'
     ))
 
     # Printing transfers
-    node = uavcan.make_node('vcan0', node_id=42)
-    node.request(uavcan.protocol.GetNodeInfo.Request(), 100, lambda e: print(to_yaml(e)))
-    node.add_handler(uavcan.protocol.NodeStatus, lambda e: print(to_yaml(e)))
+    node = dronecan.make_node('vcan0', node_id=42)
+    node.request(dronecan.protocol.GetNodeInfo.Request(), 100, lambda e: print(to_yaml(e)))
+    node.add_handler(dronecan.protocol.NodeStatus, lambda e: print(to_yaml(e)))
     node.spin()

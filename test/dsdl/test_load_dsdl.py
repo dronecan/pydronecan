@@ -10,9 +10,9 @@
 
 import unittest
 import os
-from uavcan.dsdl import signature
-from uavcan.dsdl.common import DsdlException
-from uavcan import load_dsdl
+from dronecan.dsdl import signature
+from dronecan.dsdl.common import DsdlException
+from dronecan import load_dsdl
 
 
 class TestLoadDsdl(unittest.TestCase):
@@ -22,12 +22,12 @@ class TestLoadDsdl(unittest.TestCase):
 
     def test_reload(self):
         '''
-        Test calling load_dsdl again (after it is called by the uavcan module)
+        Test calling load_dsdl again (after it is called by the dronecan module)
         '''
         ns0_dir = '{}/fake_dsdl/ns0_base/ns0'.format(os.path.dirname(__file__))
         load_dsdl(ns0_dir, exclude_dist=True)
-        import uavcan
-        test_type = uavcan.thirdparty.ns0.Type0()
+        import dronecan
+        test_type = dronecan.thirdparty.ns0.Type0()
         self.assertEqual(test_type.field0, 0)
 
     def test_reload_with_redefinition(self):

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2014-2015  UAVCAN Development Team  <uavcan.org>
+# Copyright (C) 2014-2015  UAVCAN Development Team  <dronecan.org>
 #
 # This software is distributed under the terms of the MIT License.
 #
@@ -9,9 +9,9 @@
 
 import os
 import unittest
-from uavcan.dsdl import parser
-from uavcan.dsdl import parser, parse_namespaces
-from uavcan.dsdl.common import DsdlException
+from dronecan.dsdl import parser
+from dronecan.dsdl import parser, parse_namespaces
+from dronecan.dsdl.common import DsdlException
 
 
 class TestParseNamespaces(unittest.TestCase):
@@ -21,9 +21,9 @@ class TestParseNamespaces(unittest.TestCase):
 
     def test_builtin(self):
         '''
-        Test the ability to load all the UAVCAN v0 messages
+        Test the ability to load all the DroneCAN v0 messages
         '''
-        built_in_dir = '{}/../../uavcan/dsdl_files/uavcan'.format(os.path.dirname(__file__))
+        built_in_dir = '{}/../../dronecan/dsdl_files/dronecan'.format(os.path.dirname(__file__))
         parse_namespaces([built_in_dir])
 
     def test_duplicate_in_search_dir(self):

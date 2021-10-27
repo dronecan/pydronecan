@@ -41,7 +41,7 @@ class Type:
     """
     Common type description. The specialized type description classes inherit from this one.
     Fields:
-        full_name    Full type name string, e.g. "uavcan.protocol.NodeStatus"
+        full_name    Full type name string, e.g. "dronecan.protocol.NodeStatus"
         category     Any CATEGORY_*
     """
     CATEGORY_PRIMITIVE = 0
@@ -178,7 +178,7 @@ class ArrayType(Type):
 # noinspection PyAbstractClass
 class CompoundType(Type):
     """
-    Compound type description, e.g. uavcan.protocol.NodeStatus.
+    Compound type description, e.g. dronecan.protocol.NodeStatus.
     Fields:
         source_file         Path to the DSDL definition file for this type
         default_dtid        Default Data Type ID, if specified, None otherwise
@@ -301,7 +301,7 @@ class CompoundType(Type):
         return compute_signature(self.get_dsdl_signature_source_definition())
 
     def get_normalized_definition(self):
-        """Returns full type name string, e.g. 'uavcan.protocol.NodeStatus'"""
+        """Returns full type name string, e.g. 'dronecan.protocol.NodeStatus'"""
         return self.full_name
 
     def get_data_type_signature(self):
@@ -431,8 +431,8 @@ class Parser:
         basename = os.path.basename(filename)
         items = basename.split('.')
 
-        if (len(items) != 2 and len(items) != 3 and len(items) != 4 and len(items) != 5) or items[-1] != 'uavcan':
-            error('Invalid file name [%s]; expected pattern: [<default-dtid>.]<short-type-name>.[<major-version>.<minor-version>.]uavcan', basename)
+        if (len(items) != 2 and len(items) != 3 and len(items) != 4 and len(items) != 5) or items[-1] != 'dronecan':
+            error('Invalid file name [%s]; expected pattern: [<default-dtid>.]<short-type-name>.[<major-version>.<minor-version>.]dronecan', basename)
 
         if len(items) == 2 or len(items) == 4:
             default_dtid, name = None, items[0]
@@ -819,12 +819,12 @@ def parse_namespaces(source_dirs, search_dirs=None):
         search_dirs:   List of root namespace directories with referenced types (optional). This list is
                        automatically extended with source_dirs.
     Example:
-        >>> import uavcan
-        >>> a = uavcan.dsdl.parse_namespaces(['../dsdl/uavcan'])
+        >>> import dronecan
+        >>> a = dronecan.dsdl.parse_namespaces(['../dsdl/dronecan'])
         >>> len(a)
         77
         >>> a[0]
-        uavcan.Timestamp
+        dronecan.Timestamp
         >>> a[0].fields
         [truncated uint48 husec]
         >>> a[0].constants
@@ -841,7 +841,7 @@ def parse_namespaces(source_dirs, search_dirs=None):
         for source_dir in walk_dirs:
             walker = os.walk(source_dir, onerror=partial(on_walk_error, source_dir), followlinks=True)
             for root, _dirnames, filenames in walker:
-                for filename in fnmatch.filter(filenames, '*.uavcan'):
+                for filename in fnmatch.filter(filenames, '*.dronecan'):
                     filename = os.path.join(root, filename)
                     yield filename
 

@@ -22,9 +22,9 @@ except ImportError:
     import collections  # Python 2
     MutableSequence = collections.MutableSequence
 
-import uavcan
-import uavcan.dsdl as dsdl
-import uavcan.dsdl.common as common
+import dronecan
+import dronecan.dsdl as dsdl
+import dronecan.dsdl.common as common
 
 
 try:
@@ -39,7 +39,7 @@ else:
         return bytes([x])
 
 
-def get_uavcan_data_type(obj):
+def get_dronecan_data_type(obj):
     # noinspection PyProtectedMember
     return obj._type
 
@@ -188,7 +188,7 @@ class Float32IntegerUnion(object):
 
 
 def f16_from_f32(float32):
-    # Directly translated from libuavcan's implementation in C++
+    # Directly translated from libdronecan's implementation in C++
     f32infty = Float32IntegerUnion(integer=255 << 23)
     f16infty = Float32IntegerUnion(integer=31 << 23)
     magic = Float32IntegerUnion(integer=15 << 23)
@@ -213,7 +213,7 @@ def f16_from_f32(float32):
 
 
 def f32_from_f16(float16):
-    # Directly translated from libuavcan's implementation in C++
+    # Directly translated from libdronecan's implementation in C++
     magic = Float32IntegerUnion(integer=(254 - 15) << 23)
     was_inf_nan = Float32IntegerUnion(integer=(127 + 16) << 23)
 
@@ -247,8 +247,8 @@ def cast(value, dtype):
 
 class BaseValue(object):
     # noinspection PyUnusedLocal
-    def __init__(self, _uavcan_type, *_args, **_kwargs):
-        self._type = _uavcan_type
+    def __init__(self, _dronecan_type, *_args, **_kwargs):
+        self._type = _dronecan_type
         self._bits = None
 
     def _unpack(self, stream, tao):
@@ -274,8 +274,8 @@ class VoidValue(BaseValue):
 
 
 class PrimitiveValue(BaseValue):
-    def __init__(self, _uavcan_type, *args, **kwargs):
-        super(PrimitiveValue, self).__init__(_uavcan_type, *args, **kwargs)
+    def __init__(self, _dronecan_type, *args, **kwargs):
+        super(PrimitiveValue, self).__init__(_dronecan_type, *args, **kwargs)
         # Default initialization
         self.value = 0
 
@@ -335,8 +335,8 @@ class PrimitiveValue(BaseValue):
 
 # noinspection PyProtectedMember
 class ArrayValue(BaseValue, MutableSequence):
-    def __init__(self, _uavcan_type, *args, **kwargs):
-        super(ArrayValue, self).__init__(_uavcan_type, *args, **kwargs)
+    def __init__(self, _dronecan_type, *args, **kwargs):
+        super(ArrayValue, self).__init__(_dronecan_type, *args, **kwargs)
 
         if isinstance(self._type.value_type, dsdl.PrimitiveType):
             self.__item_ctor = functools.partial(PrimitiveValue, self._type.value_type)
@@ -475,10 +475,10 @@ class ArrayValue(BaseValue, MutableSequence):
 
 # noinspection PyProtectedMember
 class CompoundValue(BaseValue):
-    def __init__(self, _uavcan_type, _mode=None, *args, **kwargs):
+    def __init__(self, _dronecan_type, _mode=None, *args, **kwargs):
         self.__dict__["_fields"] = collections.OrderedDict()
         self.__dict__["_constants"] = {}
-        super(CompoundValue, self).__init__(_uavcan_type, *args, **kwargs)
+        super(CompoundValue, self).__init__(_dronecan_type, *args, **kwargs)
 
         if self._type.kind == dsdl.CompoundType.KIND_SERVICE:
             if _mode == "request":
@@ -580,9 +580,9 @@ class CompoundValue(BaseValue):
             elif isinstance(attr_type, dsdl.CompoundType):
                 if not isinstance(value, CompoundValue):
                     raise AttributeError('Invalid type of the value, expected CompoundValue, got %r' % type(value))
-                if attr_type.full_name != get_uavcan_data_type(value).full_name:
+                if attr_type.full_name != get_dronecan_data_type(value).full_name:
                     raise AttributeError('Incompatible type of the value, expected %r, got %r' %
-                                         (attr_type.full_name, get_uavcan_data_type(value).full_name))
+                                         (attr_type.full_name, get_dronecan_data_type(value).full_name))
                 self._fields[attr] = copy.copy(value)
 
             elif isinstance(attr_type, dsdl.ArrayType):
@@ -649,7 +649,7 @@ class Frame(object):
         return bool(self.bytes[-1] & 0x80) if self.bytes else False
 
 
-class TransferError(uavcan.UAVCANException):
+class TransferError(dronecan.DroneCANException):
     pass
 
 
@@ -682,9 +682,9 @@ class Transfer(object):
             if len(payload_bits) & 7:
                 payload_bits += "0" * (8 - (len(payload_bits) & 7))
             self.payload = bytes_from_bits(payload_bits)
-            self.data_type_id = get_uavcan_data_type(payload).default_dtid
-            self.data_type_signature = get_uavcan_data_type(payload).get_data_type_signature()
-            self.data_type_crc = get_uavcan_data_type(payload).base_crc
+            self.data_type_id = get_dronecan_data_type(payload).default_dtid
+            self.data_type_signature = get_dronecan_data_type(payload).get_data_type_signature()
+            self.data_type_crc = get_dronecan_data_type(payload).base_crc
         else:
             self.payload = None
             self.data_type_id = None
@@ -800,7 +800,7 @@ class Transfer(object):
             kind = dsdl.CompoundType.KIND_SERVICE
         else:
             kind = dsdl.CompoundType.KIND_MESSAGE
-        datatype = uavcan.DATATYPES.get((self.data_type_id, kind))
+        datatype = dronecan.DATATYPES.get((self.data_type_id, kind))
         if not datatype:
             raise TransferError("Unrecognised {0} type ID {1}"
                                 .format("service" if self.service_not_message else "message", self.data_type_id))

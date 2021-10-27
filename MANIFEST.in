@@ -1,1 +1,1 @@
-recursive-include uavcan/dsdl_files *.uavcan
+recursive-include dronecan/dsdl_files *.dronecan
