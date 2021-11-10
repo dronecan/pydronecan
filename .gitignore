@@ -75,3 +75,5 @@ target/
 # virtualenv
 .pyenv
 
+# history
+.history
