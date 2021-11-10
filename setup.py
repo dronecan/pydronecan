@@ -29,7 +29,7 @@ args = dict(
     ],
     package_data={
         'uavcan': [os.path.join(root[len('uavcan/'):], fname)
-                   for root, dirs, files in os.walk('uavcan/dsdl_files')
+                   for root, dirs, files in os.walk('../DSDL')
                    for fname in files if fname.endswith('.uavcan')]
     },
     author='Pavel Kirienko, Ben Dyer',

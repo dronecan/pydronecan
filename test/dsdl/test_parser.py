@@ -23,7 +23,7 @@ class TestParseNamespaces(unittest.TestCase):
         '''
         Test the ability to load all the UAVCAN v0 messages
         '''
-        built_in_dir = '{}/../../uavcan/dsdl_files/uavcan'.format(os.path.dirname(__file__))
+        built_in_dir = '{}/../../../DSDL/uavcan'.format(os.path.dirname(__file__))
         parse_namespaces([built_in_dir])
 
     def test_duplicate_in_search_dir(self):
