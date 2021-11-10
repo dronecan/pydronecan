@@ -55,25 +55,25 @@ class TestBytesFromBits(unittest.TestCase):
         self.assertEqual(result_bytes, b"\x00")
 
         result_bytes = transport.bytes_from_bits("1")
-        self.assertEqual(result_bytes, b"\x01")
+        self.assertEqual(result_bytes, b"\x80")
 
         result_bytes = transport.bytes_from_bits("100")
-        self.assertEqual(result_bytes, b"\x04")
+        self.assertEqual(result_bytes, b"\x80")
 
         result_bytes = transport.bytes_from_bits("001")
-        self.assertEqual(result_bytes, b"\x01")
+        self.assertEqual(result_bytes, b"\x20")
 
         result_bytes = transport.bytes_from_bits("1001")
-        self.assertEqual(result_bytes, b"\x09")
+        self.assertEqual(result_bytes, b"\x90")
 
         result_bytes = transport.bytes_from_bits("01001")
-        self.assertEqual(result_bytes, b"\x09")
+        self.assertEqual(result_bytes, b"\x48")
 
         result_bytes = transport.bytes_from_bits("0001001")
-        self.assertEqual(result_bytes, b"\x09")
+        self.assertEqual(result_bytes, b"\x12")
 
         result_bytes = transport.bytes_from_bits("1001001")
-        self.assertEqual(result_bytes, b"\x49")
+        self.assertEqual(result_bytes, b"\x92")
 
     def test_single_byte(self):
         result_bytes = transport.bytes_from_bits("10010110")
@@ -93,7 +93,7 @@ class TestBytesFromBits(unittest.TestCase):
         self.assertEqual(result_bytes, b"\xD2\xCB\x00")
 
         result_bytes = transport.bytes_from_bits("10100101100101101")
-        self.assertEqual(result_bytes, b"\xA5\x96\x01")
+        self.assertEqual(result_bytes, b"\xA5\x96\x80")
 
 
 class TestBEFromLEBits(unittest.TestCase):
