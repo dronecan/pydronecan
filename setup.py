@@ -13,29 +13,29 @@ import sys
 from setuptools import setup
 
 __version__ = None
-VERSION_FILE = os.path.join(os.path.dirname(__file__), 'uavcan', 'version.py')
+VERSION_FILE = os.path.join(os.path.dirname(__file__), 'dronecan', 'version.py')
 exec(open(VERSION_FILE).read())         # Adds __version__ to globals
 
 try:
-    os.symlink('../../DSDL', 'uavcan/dsdl_specs')
+    os.symlink('../../DSDL', 'dronecan/dsdl_specs')
     args = dict(
-        name='uavcan',
+        name='dronecan',
         version=__version__,
-        description='Python implementation of the UAVCAN protocol stack',
+        description='Python implementation of the DroneCAN protocol stack',
         packages=[
-            'uavcan',
-            'uavcan.dsdl',
-            'uavcan.driver',
-            'uavcan.app',
+            'dronecan',
+            'dronecan.dsdl',
+            'dronecan.driver',
+            'dronecan.app',
         ],
         package_data={
-            'uavcan': [os.path.join(root[len('uavcan/'):], fname)
-                    for root, dirs, files in os.walk('uavcan/dsdl_specs', followlinks=True)
+            'dronecan': [os.path.join(root[len('dronecan/'):], fname)
+                    for root, dirs, files in os.walk('dronecan/dsdl_specs', followlinks=True)
                     for fname in files if fname.endswith('.uavcan')]
         },
         author='Pavel Kirienko, Ben Dyer',
         author_email='uavcan@googlegroups.com',
-        url='http://uavcan.org/Implementations/Pyuavcan',
+        url='https://dronecan.github.io',
         license='MIT',
         classifiers=[
             'Development Status :: 3 - Alpha',
@@ -52,4 +52,4 @@ try:
 
     setup(**args)
 finally:
-    os.unlink('uavcan/dsdl_specs')
+    os.unlink('dronecan/dsdl_specs')

@@ -8,7 +8,7 @@
 #
 
 """
-Python UAVCAN package.
+Python DroneCAN package.
 Supported Python versions: 3.2+, 2.7.
 """
 
@@ -47,16 +47,16 @@ class UAVCANException(Exception):
 
 
 from .version import __version__
-import uavcan.node as node
-from uavcan.node import make_node
-from uavcan.driver import make_driver
-import uavcan.dsdl as dsdl
-import uavcan.transport as transport
-from uavcan.transport import get_uavcan_data_type, \
+import dronecan.node as node
+from dronecan.node import make_node
+from dronecan.driver import make_driver
+import dronecan.dsdl as dsdl
+import dronecan.transport as transport
+from dronecan.transport import get_dronecan_data_type, \
     get_active_union_field, switch_union_field, is_union, \
     get_constants, get_fields, \
     is_request, is_response
-from uavcan.introspect import value_to_constant_name, to_yaml
+from dronecan.introspect import value_to_constant_name, to_yaml
 
 
 TRANSFER_PRIORITY_LOWEST = 31
@@ -124,8 +124,15 @@ def load_dsdl(*paths, **args):
     try:
         if not args.get("exclude_dist", None):
             dsdl_path = pkg_resources.resource_filename(__name__, "dsdl_specs")  # @UndefinedVariable
-            paths = [os.path.join(dsdl_path, "uavcan")] + paths
+            # check if we are a package, if not directly use relative DSDL path
+            if not os.path.exists(dsdl_path):
+                dsdl_path = os.path.join(os.path.dirname(__file__), "../../DSDL")
+            paths = [os.path.join(dsdl_path, "uavcan"), os.path.join(dsdl_path, "dronecan")] + paths
             custom_path = os.path.join(os.path.expanduser("~"), "uavcan_vendor_specific_types")
+            if os.path.isdir(custom_path):
+                paths += [f for f in [os.path.join(custom_path, f) for f in os.listdir(custom_path)]
+                          if os.path.isdir(f)]
+            custom_path = os.path.join(os.path.expanduser("~"), "dronecan_vendor_specific_types")
             if os.path.isdir(custom_path):
                 paths += [f for f in [os.path.join(custom_path, f) for f in os.listdir(custom_path)]
                           if os.path.isdir(f)]
@@ -134,6 +141,7 @@ def load_dsdl(*paths, **args):
 
     root_namespace = Namespace()
     dtypes = dsdl.parse_namespaces(paths)
+    print(paths)
     for dtype in dtypes:
         namespace, _, typename = dtype.full_name.rpartition(".")
         root_namespace._path(namespace).__dict__[typename] = dtype
@@ -161,9 +169,14 @@ def load_dsdl(*paths, **args):
             dtype.Request = create_instance_closure(dtype, _mode='request')
             dtype.Response = create_instance_closure(dtype, _mode='response')
 
-    namespace = root_namespace._path("uavcan")
+    namespace = root_namespace._path("dronecan")
     for top_namespace in namespace._namespaces():
         MODULE.__dict__[str(top_namespace)] = namespace.__dict__[top_namespace]
+
+    namespace = root_namespace._path("uavcan")
+    MODULE.__dict__["uavcan"] = Namespace()
+    for top_namespace in namespace._namespaces():
+        MODULE.uavcan.__dict__[str(top_namespace)] = namespace.__dict__[top_namespace]
 
     MODULE.__dict__["thirdparty"] = Namespace()
     for ext_namespace in root_namespace._namespaces():
@@ -189,4 +202,4 @@ load_dsdl()
 
 
 # Importing modules that may be dependent on the standard DSDL types
-import uavcan.app as app
+import dronecan.app as app

@@ -10,15 +10,15 @@
 from __future__ import division, absolute_import, print_function, unicode_literals
 import time
 from logging import getLogger
-import uavcan
-
+import dronecan
+from dronecan import uavcan
 
 logger = getLogger(__name__)
 
 
 class NodeMonitor(object):
     TIMEOUT = uavcan.protocol.NodeStatus().OFFLINE_TIMEOUT_MS / 1000  # @UndefinedVariable
-    TRANSFER_PRIORITY = uavcan.TRANSFER_PRIORITY_LOWEST - 1
+    TRANSFER_PRIORITY = dronecan.TRANSFER_PRIORITY_LOWEST - 1
     MIN_RETRY_INTERVAL = 0.5
     MAX_RETRIES = 10
 

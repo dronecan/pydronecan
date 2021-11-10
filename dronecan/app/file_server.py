@@ -11,7 +11,8 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 import os
 from collections import defaultdict
 from logging import getLogger
-import uavcan
+import dronecan
+from dronecan import uavcan
 import errno
 
 
@@ -33,7 +34,7 @@ def _try_resolve_relative_path(search_in, rel_path):
 class FileServer(object):
     def __init__(self, node, lookup_paths=None):
         if node.is_anonymous:
-            raise uavcan.UAVCANException('File server cannot be launched on an anonymous node')
+            raise dronecan.UAVCANException('File server cannot be launched on an anonymous node')
 
         self.lookup_paths = lookup_paths or []
 
@@ -89,7 +90,7 @@ class FileServer(object):
             with open(self._resolve_path(e.request.path), "rb") as f:
                 f.seek(e.request.offset)
                 resp = uavcan.protocol.file.Read.Response()
-                read_size = uavcan.get_uavcan_data_type(uavcan.get_fields(resp)['data']).max_size
+                read_size = dronecan.get_dronecan_data_type(dronecan.get_fields(resp)['data']).max_size
                 resp.data = bytearray(f.read(read_size))
                 resp.error.value = resp.error.OK
         except Exception:

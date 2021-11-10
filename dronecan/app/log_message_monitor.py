@@ -9,8 +9,7 @@
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 from logging import getLogger
-import uavcan
-
+from dronecan import uavcan
 
 logger = getLogger(__name__)
 

@@ -15,11 +15,11 @@ import sys
 import inspect
 from logging import getLogger
 
-import uavcan
-import uavcan.driver as driver
-import uavcan.transport as transport
-from uavcan.transport import get_uavcan_data_type
-from uavcan import UAVCANException
+import dronecan
+import dronecan.driver as driver
+import dronecan.transport as transport
+from dronecan.transport import get_dronecan_data_type
+from dronecan import UAVCANException
 
 
 DEFAULT_NODE_STATUS_INTERVAL = 1.0
@@ -44,7 +44,7 @@ class Scheduler(object):
             self._run_scheduler = lambda: self._scheduler.run(blocking=False) + self._scheduler.timefunc()
         else:
             # Nightmare inducing hacks
-            class SayNoToBlockingSchedulingException(uavcan.UAVCANException):
+            class SayNoToBlockingSchedulingException(dronecan.UAVCANException):
                 pass
 
             def delayfunc_impostor(duration):
@@ -146,11 +146,11 @@ class HandlerDispatcher(object):
         self._node = node
         self._catch_exceptions = catch_exceptions
 
-    def add_handler(self, uavcan_type, handler, **kwargs):
+    def add_handler(self, dronecan_type, handler, **kwargs):
         service = {
-            uavcan_type.KIND_SERVICE: True,
-            uavcan_type.KIND_MESSAGE: False
-        }[uavcan_type.kind]
+            dronecan_type.KIND_SERVICE: True,
+            dronecan_type.KIND_MESSAGE: False
+        }[dronecan_type.kind]
 
         # If handler is a class, create a wrapper function and register it as a regular callback
         if inspect.isclass(handler):
@@ -162,7 +162,7 @@ class HandlerDispatcher(object):
                 else:
                     h.on_message()
 
-            return self.add_handler(uavcan_type, class_handler_adapter)
+            return self.add_handler(dronecan_type, class_handler_adapter)
 
         # At this point process the handler as a regular callback
         def call(transfer):
@@ -171,7 +171,7 @@ class HandlerDispatcher(object):
             if service:
                 if result is None:
                     raise UAVCANException('Service request handler did not return a response [%r, %r]' %
-                                          (uavcan_type, handler))
+                                          (dronecan_type, handler))
                 self._node.respond(result,
                                    transfer.source_node_id,
                                    transfer.transfer_id,
@@ -179,18 +179,18 @@ class HandlerDispatcher(object):
             else:
                 if result is not None:
                     raise UAVCANException('Message request handler did not return None [%r, %r]' %
-                                          (uavcan_type, handler))
+                                          (dronecan_type, handler))
 
-        entry = uavcan_type, call
+        entry = dronecan_type, call
         self._handlers.append(entry)
         return HandleRemover(lambda: self._handlers.remove(entry))
 
-    def remove_handlers(self, uavcan_type):
-        self._handlers = list(filter(lambda x: x[0] != uavcan_type, self._handlers))
+    def remove_handlers(self, dronecan_type):
+        self._handlers = list(filter(lambda x: x[0] != dronecan_type, self._handlers))
 
     def call_handlers(self, transfer):
-        for uavcan_type, wrapper in self._handlers:
-            if uavcan_type == get_uavcan_data_type(transfer.payload):
+        for dronecan_type, wrapper in self._handlers:
+            if dronecan_type == get_dronecan_data_type(transfer.payload):
                 try:
                     wrapper(transfer)
                 # noinspection PyBroadException
@@ -263,8 +263,8 @@ class Node(Scheduler):
         self._transfer_hook_dispatcher = TransferHookDispatcher()
 
         # NodeStatus publisher
-        self.health = uavcan.protocol.NodeStatus().HEALTH_OK                                    # @UndefinedVariable
-        self.mode = uavcan.protocol.NodeStatus().MODE_INITIALIZATION if mode is None else mode  # @UndefinedVariable
+        self.health = dronecan.uavcan.protocol.NodeStatus().HEALTH_OK                                    # @UndefinedVariable
+        self.mode = dronecan.uavcan.protocol.NodeStatus().MODE_INITIALIZATION if mode is None else mode  # @UndefinedVariable
         self.vendor_specific_status_code = 0
 
         node_status_interval = node_status_interval or DEFAULT_NODE_STATUS_INTERVAL
@@ -275,8 +275,8 @@ class Node(Scheduler):
             logger.debug('GetNodeInfo request from %r', e.transfer.source_node_id)
             self._fill_node_status(self.node_info.status)
             return self.node_info
-        self.node_info = node_info or uavcan.protocol.GetNodeInfo.Response()     # @UndefinedVariable
-        self.add_handler(uavcan.protocol.GetNodeInfo, on_get_node_info)          # @UndefinedVariable
+        self.node_info = node_info or dronecan.uavcan.protocol.GetNodeInfo.Response()     # @UndefinedVariable
+        self.add_handler(dronecan.uavcan.protocol.GetNodeInfo, on_get_node_info)          # @UndefinedVariable
 
     @property
     def is_anonymous(self):
@@ -338,7 +338,7 @@ class Node(Scheduler):
 
     def _throw_if_anonymous(self):
         if not self._node_id:
-            raise uavcan.UAVCANException('The local node is configured in anonymous mode')
+            raise dronecan.UAVCANException('The local node is configured in anonymous mode')
 
     def _fill_node_status(self, msg):
         msg.uptime_sec = int(time.monotonic() - self.start_time_monotonic + 0.5)
@@ -350,7 +350,7 @@ class Node(Scheduler):
         self._fill_node_status(self.node_info.status)
         if self._node_id:
             # TODO: transmit self.node_info.status instead of creating a new object
-            msg = uavcan.protocol.NodeStatus()  # @UndefinedVariable
+            msg = dronecan.uavcan.protocol.NodeStatus()  # @UndefinedVariable
             self._fill_node_status(msg)
             self.broadcast(msg)
 
@@ -362,10 +362,10 @@ class Node(Scheduler):
         """
         return self._transfer_hook_dispatcher.add_hook(hook, **kwargs)
 
-    def add_handler(self, uavcan_type, handler, **kwargs):
+    def add_handler(self, dronecan_type, handler, **kwargs):
         """
         Adds a handler for the specified data type.
-        :param uavcan_type: DSDL data type. Only transfers of this type will be accepted for this handler.
+        :param dronecan_type: DSDL data type. Only transfers of this type will be accepted for this handler.
         :param handler:     The handler. This must be either a callable or a class.
         :param **kwargs:    Extra arguments for the handler.
         :return: A remover object that can be used to unregister the handler as follows:
@@ -378,12 +378,12 @@ class Node(Scheduler):
             else:
                 print('There is no such handler')
         """
-        return self._handler_dispatcher.add_handler(uavcan_type, handler, **kwargs)
+        return self._handler_dispatcher.add_handler(dronecan_type, handler, **kwargs)
 
-    def remove_handlers(self, uavcan_type):
+    def remove_handlers(self, dronecan_type):
         """Removes all handlers for the specified DSDL data type.
         """
-        self._handler_dispatcher.remove_handlers(uavcan_type)
+        self._handler_dispatcher.remove_handlers(dronecan_type)
 
     def spin(self, timeout=None):
         """
@@ -425,7 +425,7 @@ class Node(Scheduler):
         self._throw_if_anonymous()
 
         # Preparing the transfer
-        transfer_id = self._next_transfer_id((get_uavcan_data_type(payload).default_dtid, dest_node_id))
+        transfer_id = self._next_transfer_id((get_dronecan_data_type(payload).default_dtid, dest_node_id))
         transfer = transport.Transfer(payload=payload,
                                       source_node_id=self._node_id,
                                       dest_node_id=dest_node_id,
@@ -491,7 +491,7 @@ class Node(Scheduler):
     def broadcast(self, payload, priority=None):
         self._throw_if_anonymous()
 
-        transfer_id = self._next_transfer_id(get_uavcan_data_type(payload).default_dtid)
+        transfer_id = self._next_transfer_id(get_dronecan_data_type(payload).default_dtid)
         transfer = transport.Transfer(payload=payload,
                                       source_node_id=self._node_id,
                                       transfer_id=transfer_id,
@@ -531,7 +531,7 @@ class Service(object):
         self.request = event.request
         self.transfer = event.transfer
         self.node = event.node
-        self.response = get_uavcan_data_type(self.request).Response()
+        self.response = get_dronecan_data_type(self.request).Response()
 
     def on_request(self):
         pass

@@ -820,7 +820,7 @@ def parse_namespaces(source_dirs, search_dirs=None):
                        automatically extended with source_dirs.
     Example:
         >>> import uavcan
-        >>> a = uavcan.dsdl.parse_namespaces(['../dsdl/uavcan'])
+        >>> a = dronecan.dsdl.parse_namespaces(['../dsdl/uavcan'])
         >>> len(a)
         77
         >>> a[0]

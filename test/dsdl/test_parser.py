@@ -9,9 +9,9 @@
 
 import os
 import unittest
-from uavcan.dsdl import parser
-from uavcan.dsdl import parser, parse_namespaces
-from uavcan.dsdl.common import DsdlException
+from dronecan.dsdl import parser
+from dronecan.dsdl import parser, parse_namespaces
+from dronecan.dsdl.common import DsdlException
 
 
 class TestParseNamespaces(unittest.TestCase):

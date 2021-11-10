@@ -11,9 +11,9 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 import time
 import sqlite3
 from logging import getLogger
-import uavcan
-from uavcan import UAVCANException
-
+import dronecan
+from dronecan import UAVCANException
+from dronecan import uavcan
 
 logger = getLogger(__name__)
 

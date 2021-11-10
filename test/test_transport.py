@@ -8,9 +8,9 @@
 #
 
 import unittest
-from uavcan import transport
-from uavcan.dsdl import parser
-
+from dronecan import transport
+from dronecan.dsdl import parser
+from dronecan import uavcan
 
 class TestBitsFromBytes(unittest.TestCase):
     def test_empty(self):
@@ -582,11 +582,11 @@ class TestMessageUnion(unittest.TestCase):
 
 class TestAssignment(unittest.TestCase):
     def setUp(self):
-        import uavcan
+        import dronecan
         self.a = uavcan.protocol.GetNodeInfo.Response()
 
     def test_compound_assignment(self):
-        import uavcan
+        import dronecan
 
         orig_status = self.a.status
         print(orig_status)

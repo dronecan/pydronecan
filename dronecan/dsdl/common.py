@@ -10,7 +10,7 @@
 from __future__ import division, absolute_import, print_function, unicode_literals
 import os
 import struct
-from uavcan import UAVCANException
+from dronecan import UAVCANException
 
 
 class DsdlException(UAVCANException):
