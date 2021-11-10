@@ -1,18 +1,15 @@
-UAVCAN v0 stack in Python
+DroneCAN v1 stack in Python  [a fork of UAVCAN v0.9]
 ==========================
 
-[![Travis CI](https://travis-ci.org/UAVCAN/pyuavcan.svg?branch=master)](https://travis-ci.org/UAVCAN/pyuavcan)
-[![Gitter](https://img.shields.io/badge/gitter-join%20chat-green.svg)](https://gitter.im/UAVCAN/general)
 
-Python implementation of the [UAVCAN v0 protocol stack](http://uavcan.github.io).
+Python implementation of the [DroneCAN v1 protocol stack](http://dronecan.github.io).
 
-UAVCAN is a lightweight protocol designed for reliable communication in aerospace and robotic applications via CAN bus.
+DroneCAN is a lightweight protocol designed for reliable communication in aerospace and robotic applications via CAN bus.
 
 ## Documentation
 
-* [DroneCAN website](http://dronecan.github.io)
-* [UAVCAN forum](https://forum.uavcan.org)
-* [Pyuavcan documentation and tutorials](http://uavcan.org/Implementations/Pyuavcan/)
+* [DroneCAN v1 website](http://dronecan.github.io)
+* [Pydronecan documentation and tutorials](http://dronecan.org/Implementations/Pydronecan/)
 
 ## Installation
 
@@ -21,7 +18,7 @@ If the library is used with Python 3, which is recommended, it does not require 
 If Python 2.7 is used, additional dependencies are needed - refer to `setup.py` for more info.
 
 ```bash
-pip install uavcan
+pip install dronecan
 ```
 
 ## Development
@@ -36,4 +33,4 @@ In order to deploy to PyPI via CI, do this:
 
 ### Code style
 
-Please follow the [Zubax Python Coding Conventions](https://kb.zubax.com/x/_oAh).
+Please follow the existing coding styles.
