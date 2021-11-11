@@ -17,7 +17,8 @@ VERSION_FILE = os.path.join(os.path.dirname(__file__), 'dronecan', 'version.py')
 exec(open(VERSION_FILE).read())         # Adds __version__ to globals
 
 try:
-    os.symlink('../../DSDL', 'dronecan/dsdl_specs')
+    if not os.path.exists('dronecan/dsdl_specs'):
+        os.symlink('../../DSDL', 'dronecan/dsdl_specs')
     args = dict(
         name='dronecan',
         version=__version__,
@@ -55,4 +56,5 @@ try:
 
     setup(**args)
 finally:
-    os.unlink('dronecan/dsdl_specs')
+    if os.path.islink('dronecan/dsdl_specs'):
+        os.unlink('dronecan/dsdl_specs')
