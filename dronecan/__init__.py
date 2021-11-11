@@ -141,7 +141,7 @@ def load_dsdl(*paths, **args):
 
     root_namespace = Namespace()
     dtypes = dsdl.parse_namespaces(paths)
-    print(paths)
+
     for dtype in dtypes:
         namespace, _, typename = dtype.full_name.rpartition(".")
         root_namespace._path(namespace).__dict__[typename] = dtype
