@@ -122,7 +122,7 @@ def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None)
 
     # Decomposing PrimitiveValue to value and type. This is ugly but it's by design...
     if isinstance(obj, PrimitiveValue):
-        uavcan_type = dronecan.get_dronecan_data_type(obj)
+        dronecan_type = dronecan.get_dronecan_data_type(obj)
         obj = obj.value
 
     # CompoundValue
