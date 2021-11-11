@@ -38,7 +38,7 @@ jobs:
     # install
     - name: Download DSDL Specifications
       run: |
-        git clone https://github.com/DroneCAN/dsdl.git
+        git clone https://github.com/DroneCAN/DSDL.git
         ln -s $PWD/DSDL ../
 
     - name: Install pydronecan
