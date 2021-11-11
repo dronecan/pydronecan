@@ -46,6 +46,9 @@ try:
         ],
         keywords=''
     )
+    # ensure dsdl specs are not empty
+    if  len(args['package_data']['dronecan']) == 0:
+        raise Exception('DSDL specs empty or unavailable, please ensure ../DSDL is present relative to project root')
 
     if sys.version_info[0] < 3:
         args['install_requires'] = ['monotonic']
