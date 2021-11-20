@@ -127,7 +127,11 @@ def load_dsdl(*paths, **args):
             # check if we are a package, if not directly use relative DSDL path
             if not os.path.exists(dsdl_path):
                 dsdl_path = os.path.join(os.path.dirname(__file__), "../../DSDL")
-            paths = [os.path.join(dsdl_path, "uavcan"), os.path.join(dsdl_path, "dronecan")] + paths
+            paths = [os.path.join(dsdl_path, "uavcan"),
+                     os.path.join(dsdl_path, "dronecan"),
+                     os.path.join(dsdl_path, "ardupilot"),
+                     os.path.join(dsdl_path, "com"),
+                     os.path.join(dsdl_path, "cuav")] + paths
             custom_path = os.path.join(os.path.expanduser("~"), "uavcan_vendor_specific_types")
             if os.path.isdir(custom_path):
                 paths += [f for f in [os.path.join(custom_path, f) for f in os.listdir(custom_path)]
