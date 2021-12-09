@@ -111,7 +111,7 @@ def to_json_compatible_object(obj):
         return _to_json_compatible_object_impl(obj)
 
 
-def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, uavcan_type=None):
+def _to_yaml_impl(obj, indent_level=0, parent=None, name=None, dronecan_type=None):
     buf = StringIO()
 
     def write(fmt, *args):
