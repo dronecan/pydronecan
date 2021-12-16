@@ -126,7 +126,14 @@ def load_dsdl(*paths, **args):
             dsdl_path = pkg_resources.resource_filename(__name__, "dsdl_specs")  # @UndefinedVariable
             # check if we are a package, if not directly use relative DSDL path
             if not os.path.exists(dsdl_path):
-                dsdl_path = os.path.join(os.path.dirname(__file__), "../../DSDL")
+                DSDL_paths = [ "../../DSDL", "../../../../../DroneCAN/DSDL" ]
+                for p in DSDL_paths:
+                    dpath = os.path.join(os.path.dirname(__file__), p)
+                    if os.path.exists(dpath):
+                        dsdl_path = dpath
+                        break
+            if not os.path.exists(dsdl_path):
+                raise UAVCANException('failed to find DSDL path')
             paths = [os.path.join(dsdl_path, "uavcan"),
                      os.path.join(dsdl_path, "dronecan"),
                      os.path.join(dsdl_path, "ardupilot"),
