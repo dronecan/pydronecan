@@ -77,3 +77,6 @@ target/
 
 # history
 .history
+
+# we don't have dsdl in this repo any more
+dsdl/
