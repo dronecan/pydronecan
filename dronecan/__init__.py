@@ -180,22 +180,19 @@ def load_dsdl(*paths, **args):
             dtype.Request = create_instance_closure(dtype, _mode='request')
             dtype.Response = create_instance_closure(dtype, _mode='response')
 
-    namespace = root_namespace._path("dronecan")
-    for top_namespace in namespace._namespaces():
-        MODULE.__dict__[str(top_namespace)] = namespace.__dict__[top_namespace]
-
-    namespace = root_namespace._path("uavcan")
-    MODULE.__dict__["uavcan"] = Namespace()
-    for top_namespace in namespace._namespaces():
-        MODULE.uavcan.__dict__[str(top_namespace)] = namespace.__dict__[top_namespace]
+    toplevel = ['dronecan', 'uavcan', 'ardupilot', 'com', 'cuav']
+    for n in toplevel:
+        namespace = root_namespace._path(n)
+        MODULE.__dict__[n] = Namespace()
+        for top_namespace in namespace._namespaces():
+            MODULE.__dict__[n].__dict__[str(top_namespace)] = namespace.__dict__[top_namespace]
 
     MODULE.__dict__["thirdparty"] = Namespace()
     for ext_namespace in root_namespace._namespaces():
         if str(ext_namespace) != "uavcan":
             # noinspection PyUnresolvedReferences
             MODULE.thirdparty.__dict__[str(ext_namespace)] = root_namespace.__dict__[ext_namespace]
-
-
+            
 __all__ = ["dsdl", "transport", "load_dsdl", "DATATYPES", "TYPENAMES"]
 
 
