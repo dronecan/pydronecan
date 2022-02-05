@@ -17,6 +17,7 @@ import select
 import multiprocessing
 import threading
 import copy
+import time
 from logging import getLogger
 from .common import DriverError, TxQueueFullError, CANFrame, AbstractDriver
 from .timestamp_estimator import TimestampEstimator
@@ -81,7 +82,80 @@ MAX_SUCCESSIVE_ERRORS_TO_GIVE_UP = 1000
 IPC_SIGNAL_INIT_OK = 'init_ok'                     # Sent from IO process to the parent process when init is done
 IPC_COMMAND_STOP = 'stop'                          # Sent from parent process to the IO process when it's time to exit
 
+class RetrySerial(object):
+    def __init__(self, device, baudrate, bitrate):
+        self.conn = serial.Serial(device, baudrate)
+        self.device = device
+        self.baudrate = baudrate
+        self.bitrate = bitrate
+        self.timeout = 0
+        self.lock = threading.RLock()
 
+    def retry(self):
+        logger.info("Reopening %s at %u" % (self.device, self.baudrate))
+        time.sleep(1)
+        self.lock.acquire()
+        try:
+            self.conn.close()
+        except Exception:
+            pass
+        try:
+            self.conn = serial.Serial(self.device, self.baudrate)
+            self.conn.timeout = self.timeout
+            _init_adapter(self.conn, self.bitrate)
+            logger.info("Reopen OK")
+        except Exception as ex:
+            logger.info("Reopen failed", ex)
+            pass
+        self.lock.release()
+
+    def read(self, n):
+        while True:
+            try:
+                self.conn.timeout = self.timeout
+                return self.conn.read(n)
+            except Exception as ex:
+                self.retry()
+                pass
+
+    def write(self, b):
+        while True:
+            try:
+                return self.conn.write(b)
+            except Exception as ex:
+                self.retry()
+                pass
+
+    def flush(self):
+        while True:
+            try:
+                return self.conn.flush()
+            except Exception:
+                self.retry()
+                pass
+
+    def fileno(self):
+        while True:
+            try:
+                return self.conn.fileno()
+            except Exception:
+                self.retry()
+                pass
+
+    def select_read(self, timeout):
+        while True:
+            try:
+                return select.select([self.conn.fileno()], [], [], timeout)
+            except Exception as ex:
+                self.retry()
+                pass
+
+    def inWaiting(self):
+        return self.conn.inWaiting()
+
+    def flushInput(self):
+        return self.conn.flushInput()
+    
 class IPCCommandLineExecutionRequest:
     DEFAULT_TIMEOUT = 1
 
@@ -147,7 +221,7 @@ class RxWorker:
             ts_mono = time.monotonic()
             ts_real = time.time()
         else:
-            select.select([self._conn.fileno()], [], [], self.SELECT_TIMEOUT)
+            self._conn.select_read(self.SELECT_TIMEOUT)
             # Timestamping as soon as possible after unblocking
             ts_mono = time.monotonic()
             ts_real = time.time()
@@ -474,7 +548,8 @@ def _io_process(device,
                 baudrate=None,
                 max_adapter_clock_rate_error_ppm=None,
                 fixed_rx_delay=None,
-                max_estimated_rx_delay_to_resync=None):
+                max_estimated_rx_delay_to_resync=None,
+                auto_reopen=True):
     try:
         # noinspection PyUnresolvedReferences
         from logging.handlers import QueueHandler
@@ -544,7 +619,10 @@ def _io_process(device,
     rxthd.daemon = True
 
     try:
-        conn = serial.Serial(device, baudrate or DEFAULT_BAUDRATE)
+        if auto_reopen:
+            conn = RetrySerial(device, baudrate or DEFAULT_BAUDRATE, bitrate)
+        else:
+            conn = serial.Serial(device, baudrate or DEFAULT_BAUDRATE)
     except Exception as ex:
         logger.error('Could not open port', exc_info=True)
         rx_queue.put(ex)
