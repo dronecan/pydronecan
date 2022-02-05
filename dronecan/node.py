@@ -147,10 +147,9 @@ class HandlerDispatcher(object):
         self._catch_exceptions = catch_exceptions
 
     def add_handler(self, dronecan_type, handler, **kwargs):
-        service = {
-            dronecan_type.KIND_SERVICE: True,
-            dronecan_type.KIND_MESSAGE: False
-        }[dronecan_type.kind]
+        service = False
+        if dronecan_type is not None and dronecan_type.kind == dronecan_type.KIND_SERVICE:
+            service = True
 
         # If handler is a class, create a wrapper function and register it as a regular callback
         if inspect.isclass(handler):
@@ -190,7 +189,7 @@ class HandlerDispatcher(object):
 
     def call_handlers(self, transfer):
         for dronecan_type, wrapper in self._handlers:
-            if dronecan_type == get_dronecan_data_type(transfer.payload):
+            if dronecan_type is None or dronecan_type == get_dronecan_data_type(transfer.payload):
                 try:
                     wrapper(transfer)
                 # noinspection PyBroadException
