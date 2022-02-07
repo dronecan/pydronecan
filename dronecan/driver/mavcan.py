@@ -11,6 +11,7 @@ import os
 import sys
 import time
 import multiprocessing
+from logging import getLogger
 from .common import DriverError, CANFrame, AbstractDriver
 from pymavlink import mavutil
 
@@ -26,16 +27,31 @@ else:
     RX_QUEUE_SIZE = 1000000
 TX_QUEUE_SIZE = 1000
 
+logger = getLogger(__name__)
 
 def io_process(url, bus, tx_queue, rx_queue):
     os.environ['MAVLINK20'] = '1'
-    conn = mavutil.mavlink_connection(url, source_system=250, source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN)
-    if conn is None:
-        raise DriverError('unable to connect to %s' % url)
-        
+
     target_system = 1
     target_component = 0
     last_enable = time.time()
+    conn = None
+
+    def connect():
+        nonlocal conn
+        conn = mavutil.mavlink_connection(url, source_system=250, source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN)
+        if conn is None:
+            raise DriverError('unable to connect to %s' % url)
+
+    def reconnect():
+        while True:
+            try:
+                time.sleep(1)
+                logger.info('reconnecting to %s' % url)
+                connect()
+                return
+            except Exception:
+                continue
 
     def enable_can_forward():
         last_enable = time.time()
@@ -52,6 +68,7 @@ def io_process(url, bus, tx_queue, rx_queue):
             0,
             0)
 
+    connect()
     enable_can_forward()
 
     while True:
@@ -77,7 +94,11 @@ def io_process(url, bus, tx_queue, rx_queue):
             if time.time() - last_enable > 1:
                 enable_can_forward()
 
-        m = conn.recv_match(type='CAN_FRAME',blocking=True,timeout=0.005)
+        try:
+            m = conn.recv_match(type='CAN_FRAME',blocking=True,timeout=0.005)
+        except Exception as ex:
+            reconnect()
+            continue
         if m is None:
             continue
         is_extended = (m.id & (1<<31)) != 0
@@ -95,7 +116,7 @@ class MAVCAN(AbstractDriver):
 
     def __init__(self, url, **kwargs):
         super(MAVCAN, self).__init__()
-        self.bus = 0
+        self.bus = kwargs.get('bus_number', 1) - 1
 
         self.rx_queue = multiprocessing.Queue(maxsize=RX_QUEUE_SIZE)
         self.tx_queue = multiprocessing.Queue(maxsize=TX_QUEUE_SIZE)
