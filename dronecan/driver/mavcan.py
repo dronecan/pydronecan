@@ -158,4 +158,5 @@ class MAVCAN(AbstractDriver):
         if not conn:
             return False
         m = conn.recv_match(blocking=True, type=['HEARTBEAT','ATTITUDE', 'SYS_STATUS'], timeout=1.1)
+        conn.close()
         return m is not None
