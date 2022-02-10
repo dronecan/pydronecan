@@ -277,7 +277,9 @@ class SocketCAN(AbstractDriver):
             self._rx_hook(frame)
             return frame
 
-    def send(self, message_id, message, extended=False):
+    def send(self, message_id, message, extended=False, canfd=False):
+        if canfd:
+            raise DriverError('CANFD not supported by SocketCAN')
         self._check_write_feedback()
         try:
             self._write_queue.put_nowait(CANFrame(message_id, message, extended))
