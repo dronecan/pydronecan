@@ -82,28 +82,38 @@ def io_process(url, bus, tx_queue, rx_queue):
             if mlen < 8:
                 message += bytearray([0]*(8-mlen))
             try:
-                conn.mav.can_frame_send(
-                    target_system,
-                    target_component,
-                    bus,
-                    mlen,
-                    message_id,
-                    message)
+                if frame.canfd:
+                    conn.mav.canfd_frame_send(
+                        target_system,
+                        target_component,
+                        bus,
+                        mlen,
+                        message_id,
+                        message)
+                else:
+                    conn.mav.can_frame_send(
+                        target_system,
+                        target_component,
+                        bus,
+                        mlen,
+                        message_id,
+                        message)
             except Exception as ex:
                 print(ex)
             if time.time() - last_enable > 1:
                 enable_can_forward()
 
         try:
-            m = conn.recv_match(type='CAN_FRAME',blocking=True,timeout=0.005)
+            m = conn.recv_match(type=['CAN_FRAME','CANFD_FRAME'],blocking=True,timeout=0.005)
         except Exception as ex:
             reconnect()
             continue
         if m is None:
             continue
         is_extended = (m.id & (1<<31)) != 0
+        is_canfd = m.get_type() == 'CANFD_FRAME'
         canid = m.id & 0x1FFFFFFF
-        frame = CANFrame(canid, m.data[:m.len], is_extended)
+        frame = CANFrame(canid, m.data[:m.len], is_extended, canfd=is_canfd)
         rx_queue.put_nowait(frame)
 
 
@@ -146,8 +156,8 @@ class MAVCAN(AbstractDriver):
                 if time.time() >= tstart + timeout:
                     return
 
-    def send(self, message_id, message, extended=False):
-        frame = CANFrame(message_id, message, extended)
+    def send(self, message_id, message, extended=False, canfd=False):
+        frame = CANFrame(message_id, message, extended, canfd=canfd)
         self._tx_hook(frame)
         self.tx_queue.put_nowait(frame)
 
