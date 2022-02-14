@@ -127,3 +127,25 @@ class AbstractDriver(object):
 
     def _rx_hook(self, frame):
         self._call_io_hooks(self.FRAME_DIRECTION_INCOMING, frame)
+
+    def set_filter_list(self, ids):
+        '''set list of message IDs to accept, sent to the remote capture node with mavcan'''
+        pass
+
+    def get_filter_list(self, ids):
+        '''get list of message IDs to accept, None means accept all'''
+        return None
+    
+    def set_bus(self, busnum):
+        '''set the remote bus number to attach to'''
+        pass
+
+    def get_bus(self):
+        '''get the remote bus number we are attached to'''
+        return None
+
+    def get_filter_list(self):
+        '''get the current filter list'''
+        return None
+    
+    
