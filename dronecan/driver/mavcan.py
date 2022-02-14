@@ -29,17 +29,25 @@ TX_QUEUE_SIZE = 1000
 
 logger = getLogger(__name__)
 
-def io_process(url, bus, tx_queue, rx_queue):
+class ControlMessage(object):
+    def __init__(self, command, data):
+        self.command = command
+        self.data = data
+
+def io_process(url, bus, baudrate, tx_queue, rx_queue):
     os.environ['MAVLINK20'] = '1'
 
     target_system = 1
     target_component = 0
     last_enable = time.time()
     conn = None
+    filter_list = None
 
     def connect():
-        nonlocal conn
-        conn = mavutil.mavlink_connection(url, source_system=250, source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN)
+        nonlocal conn, baudrate
+        conn = mavutil.mavlink_connection(url, baud=baudrate, source_system=250,
+                                          source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN,
+                                          dialect='ardupilotmega')
         if conn is None:
             raise DriverError('unable to connect to %s' % url)
 
@@ -54,6 +62,8 @@ def io_process(url, bus, tx_queue, rx_queue):
                 continue
 
     def enable_can_forward():
+        '''re-enable CAN forwarding. Called at 1Hz'''
+        nonlocal last_enable, bus
         last_enable = time.time()
         conn.mav.command_long_send(
             target_system,
@@ -67,6 +77,30 @@ def io_process(url, bus, tx_queue, rx_queue):
             0,
             0,
             0)
+        if filter_list is not None:
+            ids = sorted(filter_list[:16])
+            num_ids = len(ids)
+            if len(ids) < 16:
+                ids += [0]*(16-num_ids)
+            try:
+                conn.mav.can_filter_modify_send(
+                    target_system,
+                    target_component,
+                    bus+1,
+                    mavutil.mavlink.CAN_FILTER_REPLACE,
+                    num_ids,
+                    ids)
+            except Exception as ex:
+                print(ex)
+
+    def handle_control_message(m):
+        '''handle a ControlMessage'''
+        if m.command == "BusNum":
+            nonlocal bus
+            bus = int(m.data)
+        elif m.command == "FilterList":
+            nonlocal filter_list
+            filter_list = m.data
 
     connect()
     enable_can_forward()
@@ -74,6 +108,9 @@ def io_process(url, bus, tx_queue, rx_queue):
     while True:
         while not tx_queue.empty():
             frame = tx_queue.get()
+            if isinstance(frame, ControlMessage):
+                handle_control_message(frame)
+                continue
             message_id = frame.id
             if frame.extended:
                 message_id |= 1<<31
@@ -109,6 +146,8 @@ def io_process(url, bus, tx_queue, rx_queue):
             reconnect()
             continue
         if m is None:
+            if time.time() - last_enable > 1:
+                enable_can_forward()
             continue
         is_extended = (m.id & (1<<31)) != 0
         is_canfd = m.get_type() == 'CANFD_FRAME'
@@ -127,11 +166,15 @@ class MAVCAN(AbstractDriver):
     def __init__(self, url, **kwargs):
         super(MAVCAN, self).__init__()
         self.bus = kwargs.get('bus_number', 1) - 1
+        self.filter_list = None
+        baudrate = kwargs.get('baudrate', 115200)
 
         self.rx_queue = multiprocessing.Queue(maxsize=RX_QUEUE_SIZE)
         self.tx_queue = multiprocessing.Queue(maxsize=TX_QUEUE_SIZE)
 
-        self.proc = multiprocessing.Process(target=io_process, name='mavcan_io_process',args=(url, self.bus, self.tx_queue, self.rx_queue))
+        self.proc = multiprocessing.Process(target=io_process, name='mavcan_io_process',
+                                            args=(url, self.bus, baudrate,
+                                            self.tx_queue, self.rx_queue))
         self.proc.daemon = True
         self.proc.start()
 
@@ -161,12 +204,38 @@ class MAVCAN(AbstractDriver):
         self._tx_hook(frame)
         self.tx_queue.put_nowait(frame)
 
-    def is_mavlink_port(device_name):
+    def is_mavlink_port(device_name, baudrate):
         '''check if a device is sending mavlink'''
         os.environ['MAVLINK20'] = '1'
-        conn = mavutil.mavlink_connection(device_name, source_system=250, source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN)
+        conn = mavutil.mavlink_connection(device_name, baud=baudrate, source_system=250, source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN)
         if not conn:
             return False
         m = conn.recv_match(blocking=True, type=['HEARTBEAT','ATTITUDE', 'SYS_STATUS'], timeout=1.1)
         conn.close()
         return m is not None
+
+    def set_filter_list(self, ids):
+        '''set list of message IDs to accept, sent to the remote capture node with mavcan'''
+        self.filter_list = ids
+        self.tx_queue.put_nowait(ControlMessage('FilterList', self.filter_list))
+
+    def get_filter_list(self, ids):
+        '''set list of message IDs to accept, sent to the remote capture node with mavcan'''
+        return self.filter_list
+
+    def set_bus(self, busnum):
+        '''set the remote bus number to attach to'''
+        if busnum <= 0:
+            raise DriverError('invalid bus %s' % busnum)
+        self.bus = busnum - 1
+        self.tx_queue.put_nowait(ControlMessage('BusNum', self.bus))
+
+    def get_bus(self):
+        '''get the remote bus number we are attached to'''
+        return self.bus+1
+
+    def get_filter_list(self):
+        '''get the current filter list'''
+        return self.filter_list
+
+    

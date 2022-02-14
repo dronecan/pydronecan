@@ -25,11 +25,12 @@ else:
 
 __all__ = ['make_driver', 'DriverError', 'CANFrame']
 
-def is_mavlink_port(device_name):
+def is_mavlink_port(device_name, **kwargs):
     '''check if a port is sending mavlink'''
     if not have_mavcan:
         return False
-    return MAVCAN.is_mavlink_port(device_name)
+    baudrate = kwargs.get('baudrate', 115200)
+    return MAVCAN.is_mavlink_port(device_name, baudrate)
 
 def make_driver(device_name, **kwargs):
     """Creates an instance of CAN driver.
@@ -47,7 +48,7 @@ def make_driver(device_name, **kwargs):
     elif device_name.startswith("slcan:"):
         return SLCAN(device_name[6:], **kwargs)
     elif windows_com_port or unix_tty:
-        if is_mavlink_port(device_name):
+        if is_mavlink_port(device_name, **kwargs):
             return MAVCAN(device_name, **kwargs)
         else:
             return SLCAN(device_name, **kwargs)
