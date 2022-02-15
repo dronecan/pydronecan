@@ -34,3 +34,9 @@ In order to deploy to PyPI via CI, do this:
 ### Code style
 
 Please follow the existing coding styles.
+
+## History
+
+Much of the development of this tool is based upon original work by
+Pavel Kirienko and others from the UAVCAN Development Team. See
+https://github.com/UAVCAN/pyuavcan/tree/legacy-v0 for contributors.
