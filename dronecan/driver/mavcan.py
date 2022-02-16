@@ -34,10 +34,9 @@ class ControlMessage(object):
         self.command = command
         self.data = data
 
-def io_process(url, bus, baudrate, tx_queue, rx_queue):
+def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue):
     os.environ['MAVLINK20'] = '1'
 
-    target_system = 1
     target_component = 0
     last_enable = time.time()
     conn = None
@@ -63,7 +62,7 @@ def io_process(url, bus, baudrate, tx_queue, rx_queue):
 
     def enable_can_forward():
         '''re-enable CAN forwarding. Called at 1Hz'''
-        nonlocal last_enable, bus
+        nonlocal last_enable, bus, target_system
         last_enable = time.time()
         conn.mav.command_long_send(
             target_system,
@@ -149,6 +148,8 @@ def io_process(url, bus, baudrate, tx_queue, rx_queue):
             if time.time() - last_enable > 1:
                 enable_can_forward()
             continue
+        if target_system == 0:
+            target_system = m.get_srcSystem()
         is_extended = (m.id & (1<<31)) != 0
         is_canfd = m.get_type() == 'CANFD_FRAME'
         canid = m.id & 0x1FFFFFFF
@@ -166,6 +167,7 @@ class MAVCAN(AbstractDriver):
     def __init__(self, url, **kwargs):
         super(MAVCAN, self).__init__()
         self.bus = kwargs.get('bus_number', 1) - 1
+        self.target_system = kwargs.get('mavlink_target_system', 0)
         self.filter_list = None
         baudrate = kwargs.get('baudrate', 115200)
 
@@ -173,7 +175,7 @@ class MAVCAN(AbstractDriver):
         self.tx_queue = multiprocessing.Queue(maxsize=TX_QUEUE_SIZE)
 
         self.proc = multiprocessing.Process(target=io_process, name='mavcan_io_process',
-                                            args=(url, self.bus, baudrate,
+                                            args=(url, self.bus, self.target_system, baudrate,
                                             self.tx_queue, self.rx_queue))
         self.proc.daemon = True
         self.proc.start()
