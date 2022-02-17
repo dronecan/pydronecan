@@ -654,6 +654,26 @@ class TransferError(dronecan.UAVCANException):
     pass
 
 
+def datalength_roundup(data_length):
+    # Number of data bytes 12  16  20  24  32  48  64
+    if (data_length <= 8):
+        return data_length
+    elif (data_length <= 12):
+        return 12
+    elif (data_length <= 16):
+        return 16
+    elif (data_length <= 20):
+        return 20
+    elif (data_length <= 24):
+        return 24
+    elif (data_length <= 32):
+        return 32
+    elif (data_length <= 48):
+        return 48
+    else:
+        return 64
+
+
 class Transfer(object):
     DEFAULT_TRANSFER_PRIORITY = 31
 
@@ -665,7 +685,8 @@ class Transfer(object):
                  transfer_priority=None,
                  request_not_response=False,
                  service_not_message=False,
-                 discriminator=None):
+                 discriminator=None,
+                 canfd=False):
         self.transfer_priority = transfer_priority if transfer_priority is not None else self.DEFAULT_TRANSFER_PRIORITY
         self.transfer_id = transfer_id
         self.source_node_id = source_node_id
@@ -676,10 +697,11 @@ class Transfer(object):
         self.discriminator = discriminator
         self.ts_monotonic = None
         self.ts_real = None
+        self.canfd = canfd
 
         if payload:
             # noinspection PyProtectedMember
-            payload_bits = payload._pack()
+            payload_bits = payload._pack(tao=not canfd)
             if len(payload_bits) & 7:
                 payload_bits += "0" * (8 - (len(payload_bits) & 7))
             self.payload = bytes_from_bits(payload_bits)
@@ -743,12 +765,26 @@ class Transfer(object):
 
     def to_frames(self):
         out_frames = []
-        remaining_payload = self.payload
+        payload = self.payload
+        frame_max = 64 if self.canfd else 8
+
+        if self.canfd and len(payload) > 7:
+            # we are sending a CANFD message that needs padding to account for DLC granularity
+            total_len = len(payload) + 1
+            if total_len > frame_max:
+                # we will need more than one frame, so add crc length
+                total_len += 2
+            mod_len = total_len % (frame_max-1)
+            rounded_length = datalength_roundup(mod_len)
+            padlen = rounded_length - mod_len
+            payload += bytearray([0]*padlen)
+
+        remaining_payload = payload
 
         # Prepend the transfer CRC to the payload if the transfer requires
         # multiple frames
-        if len(remaining_payload) > 7:
-            crc = common.crc16_from_bytes(self.payload,
+        if len(remaining_payload) > frame_max-1:
+            crc = common.crc16_from_bytes(payload,
                                           initial=self.data_type_crc)
             remaining_payload = bytearray([crc & 0xFF, crc >> 8]) + remaining_payload
 
@@ -757,11 +793,12 @@ class Transfer(object):
         while True:
             # Tail byte contains start-of-transfer, end-of-transfer, toggle, and Transfer ID
             tail = ((0x80 if len(out_frames) == 0 else 0) |
-                    (0x40 if len(remaining_payload) <= 7 else 0) |
+                    (0x40 if len(remaining_payload) <= (frame_max-1) else 0) |
                     ((tail ^ 0x20) & 0x20) |
                     (self.transfer_id & 0x1F))
-            out_frames.append(Frame(message_id=self.message_id, data=remaining_payload[0:7] + bchr(tail)))
-            remaining_payload = remaining_payload[7:]
+            this_data = remaining_payload[0:frame_max-1] + bchr(tail)
+            out_frames.append(Frame(message_id=self.message_id,data=this_data,canfd=self.canfd))
+            remaining_payload = remaining_payload[frame_max-1:]
             if not remaining_payload:
                 break
 

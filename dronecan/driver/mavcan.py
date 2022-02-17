@@ -115,8 +115,8 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue):
                 message_id |= 1<<31
             message = frame.data
             mlen = len(message)
-            if mlen < 8:
-                message += bytearray([0]*(8-mlen))
+            if mlen < frame.MAX_DATA_LENGTH:
+                message += bytearray([0]*(frame.MAX_DATA_LENGTH-mlen))
             try:
                 if frame.canfd:
                     conn.mav.canfd_frame_send(
