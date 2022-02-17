@@ -155,6 +155,10 @@ class RetrySerial(object):
 
     def flushInput(self):
         return self.conn.flushInput()
+
+    def close(self):
+        self.conn.close()
+        self.conn = None
     
 class IPCCommandLineExecutionRequest:
     DEFAULT_TIMEOUT = 1
