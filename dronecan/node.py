@@ -420,7 +420,7 @@ class Node(Scheduler):
                     break
             self._poll_scheduler_and_get_next_deadline()
 
-    def request(self, payload, dest_node_id, callback, priority=None, timeout=None):
+    def request(self, payload, dest_node_id, callback, priority=None, timeout=None, canfd=False):
         self._throw_if_anonymous()
 
         # Preparing the transfer
@@ -431,14 +431,15 @@ class Node(Scheduler):
                                       transfer_id=transfer_id,
                                       transfer_priority=priority or DEFAULT_TRANSFER_PRIORITY,
                                       service_not_message=True,
-                                      request_not_response=True)
+                                      request_not_response=True,
+                                      canfd=canfd)
 
         # Calling hooks
         self._transfer_hook_dispatcher.call_hooks(self._transfer_hook_dispatcher.TRANSFER_DIRECTION_OUTGOING, transfer)
 
         # Sending the transfer
         for frame in transfer.to_frames():
-            self._can_driver.send(frame.message_id, frame.bytes, extended=True)
+            self._can_driver.send(frame.message_id, frame.bytes, extended=True, canfd=canfd)
 
         # Registering a callback that will be invoked if there was no response after 'timeout' seconds
         def on_timeout():
@@ -466,7 +467,7 @@ class Node(Scheduler):
 
         logger.debug("Node.request(dest_node_id={0:d}): sent {1!r}".format(dest_node_id, payload))
 
-    def respond(self, payload, dest_node_id, transfer_id, priority):
+    def respond(self, payload, dest_node_id, transfer_id, priority, canfd=False):
         self._throw_if_anonymous()
 
         transfer = transport.Transfer(
@@ -476,18 +477,19 @@ class Node(Scheduler):
             transfer_id=transfer_id,
             transfer_priority=priority,
             service_not_message=True,
-            request_not_response=False
+            request_not_response=False,
+            canfd=canfd
         )
 
         self._transfer_hook_dispatcher.call_hooks(self._transfer_hook_dispatcher.TRANSFER_DIRECTION_OUTGOING, transfer)
 
         for frame in transfer.to_frames():
-            self._can_driver.send(frame.message_id, frame.bytes, extended=True)
+            self._can_driver.send(frame.message_id, frame.bytes, extended=True, canfd=canfd)
 
         logger.debug("Node.respond(dest_node_id={0:d}, transfer_id={0:d}, priority={0:d}): sent {1!r}"
                      .format(dest_node_id, transfer_id, priority, payload))
 
-    def broadcast(self, payload, priority=None):
+    def broadcast(self, payload, priority=None, canfd=False):
         self._throw_if_anonymous()
 
         transfer_id = self._next_transfer_id(get_dronecan_data_type(payload).default_dtid)
@@ -495,12 +497,13 @@ class Node(Scheduler):
                                       source_node_id=self._node_id,
                                       transfer_id=transfer_id,
                                       transfer_priority=priority or DEFAULT_TRANSFER_PRIORITY,
-                                      service_not_message=False)
+                                      service_not_message=False,
+                                      canfd=canfd)
 
         self._transfer_hook_dispatcher.call_hooks(self._transfer_hook_dispatcher.TRANSFER_DIRECTION_OUTGOING, transfer)
 
         for frame in transfer.to_frames():
-            self._can_driver.send(frame.message_id, frame.bytes, extended=True)
+            self._can_driver.send(frame.message_id, frame.bytes, extended=True, canfd=canfd)
 
     def close(self):
         self._can_driver.close()
