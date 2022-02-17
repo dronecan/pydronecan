@@ -404,8 +404,10 @@ class TxWorker:
         self._termination_condition = termination_condition
 
     def _send_frame(self, frame):
-        line = '%s%d%s\r' % (('T%08X' if frame.extended else 't%03X') % frame.id,
-                             len(frame.data),
+        marker = 'D' if frame.canfd else 'T'
+        dlc_len = CANFrame.datalength_to_dlc(len(frame.data))
+        line = '%s%X%s\r' % (('%c%08X' if frame.extended else 't%03X') % (marker, frame.id),
+                             dlc_len,
                              binascii.b2a_hex(frame.data).decode('ascii'))
 
         self._conn.write(line.encode('ascii'))
