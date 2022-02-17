@@ -225,6 +225,7 @@ class TransferHookDispatcher(object):
 class Node(Scheduler):
     def __init__(self, can_driver, node_id=None, node_status_interval=None,
                  mode=None, node_info=None, catch_handler_exceptions=True,
+                 send_canfd=False,
                  **_extras):
         """
         It is recommended to use make_node() rather than instantiating this type directly.
@@ -250,6 +251,7 @@ class Node(Scheduler):
 
         self._can_driver = can_driver
         self._node_id = node_id
+        self._send_canfd = send_canfd
 
         self._transfer_manager = transport.TransferManager()
         self._outstanding_requests = {}
@@ -276,6 +278,10 @@ class Node(Scheduler):
             return self.node_info
         self.node_info = node_info or dronecan.uavcan.protocol.GetNodeInfo.Response()     # @UndefinedVariable
         self.add_handler(dronecan.uavcan.protocol.GetNodeInfo, on_get_node_info)          # @UndefinedVariable
+
+    def set_canfd(self, send_canfd):
+        '''change default send of CANFD'''
+        self._send_canfd = send_canfd
 
     @property
     def is_anonymous(self):
@@ -420,8 +426,11 @@ class Node(Scheduler):
                     break
             self._poll_scheduler_and_get_next_deadline()
 
-    def request(self, payload, dest_node_id, callback, priority=None, timeout=None, canfd=False):
+    def request(self, payload, dest_node_id, callback, priority=None, timeout=None, canfd=None):
         self._throw_if_anonymous()
+
+        if canfd is None:
+            canfd = self._send_canfd
 
         # Preparing the transfer
         transfer_id = self._next_transfer_id((get_dronecan_data_type(payload).default_dtid, dest_node_id))
@@ -467,8 +476,11 @@ class Node(Scheduler):
 
         logger.debug("Node.request(dest_node_id={0:d}): sent {1!r}".format(dest_node_id, payload))
 
-    def respond(self, payload, dest_node_id, transfer_id, priority, canfd=False):
+    def respond(self, payload, dest_node_id, transfer_id, priority, canfd=None):
         self._throw_if_anonymous()
+
+        if canfd is None:
+            canfd = self._send_canfd
 
         transfer = transport.Transfer(
             payload=payload,
@@ -489,9 +501,12 @@ class Node(Scheduler):
         logger.debug("Node.respond(dest_node_id={0:d}, transfer_id={0:d}, priority={0:d}): sent {1!r}"
                      .format(dest_node_id, transfer_id, priority, payload))
 
-    def broadcast(self, payload, priority=None, canfd=False):
+    def broadcast(self, payload, priority=None, canfd=None):
         self._throw_if_anonymous()
 
+        if canfd is None:
+            canfd = self._send_canfd
+        
         transfer_id = self._next_transfer_id(get_dronecan_data_type(payload).default_dtid)
         transfer = transport.Transfer(payload=payload,
                                       source_node_id=self._node_id,
