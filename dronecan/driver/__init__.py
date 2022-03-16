@@ -14,7 +14,7 @@ from .slcan import SLCAN
 try:
     from .mavcan import MAVCAN
     have_mavcan = True
-except ImportError:
+except Exception:
     have_mavcan = False
 from .common import DriverError, CANFrame
 
