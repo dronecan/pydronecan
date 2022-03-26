@@ -29,6 +29,22 @@ except ImportError:
 
 logger = getLogger(__name__)
 
+# from linux/can.h
+CAN_RAW = 1
+
+# from linux/socket.h
+AF_CAN = 29
+
+from socket import SOL_SOCKET
+
+SOL_CAN_BASE = 100
+SOL_CAN_RAW = SOL_CAN_BASE + CAN_RAW
+CAN_RAW_FILTER = 1                      # set 0 .. n can_filter(s)
+CAN_RAW_ERR_FILTER = 2                  # set filter for error frames
+CAN_RAW_LOOPBACK = 3                    # local loopback (default:on)
+CAN_RAW_RECV_OWN_MSGS = 4               # receive my own msgs (default:off)
+CAN_RAW_FD_FRAMES = 5                   # allow CAN FD frames (default:off)
+
 
 # Python 3.3+'s socket module has support for SocketCAN when running on Linux. Use that if possible.
 # noinspection PyBroadException
@@ -39,6 +55,7 @@ try:
     def get_socket(ifname):
         s = socket.socket(socket.PF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
         s.bind((ifname, ))
+        s.setsockopt(SOL_CAN_RAW, CAN_RAW_FD_FRAMES, 1)
         return s
 
     NATIVE_SOCKETCAN = True
@@ -49,22 +66,6 @@ except Exception:
     import ctypes.util
 
     libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
-
-    # from linux/can.h
-    CAN_RAW = 1
-
-    # from linux/socket.h
-    AF_CAN = 29
-
-    from socket import SOL_SOCKET
-
-    SOL_CAN_BASE = 100
-    SOL_CAN_RAW = SOL_CAN_BASE + CAN_RAW
-    CAN_RAW_FILTER = 1                      # set 0 .. n can_filter(s)
-    CAN_RAW_ERR_FILTER = 2                  # set filter for error frames
-    CAN_RAW_LOOPBACK = 3                    # local loopback (default:on)
-    CAN_RAW_RECV_OWN_MSGS = 4               # receive my own msgs (default:off)
-    CAN_RAW_FD_FRAMES = 5                   # allow CAN FD frames (default:off)
 
     # noinspection PyPep8Naming
     class sockaddr_can(ctypes.Structure):
@@ -102,6 +103,26 @@ except Exception:
             ("data", ctypes.c_uint8 * 8)
         ]
 
+    # noinspection PyPep8Naming
+    class canfd_frame(ctypes.Structure):
+        """
+            struct canfd_frame {
+            canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
+            __u8    len;     /* frame payload length in byte (0 .. 64) */
+            __u8    flags;   /* additional flags for CAN FD */
+            __u8    __res0;  /* reserved / padding */
+            __u8    __res1;  /* reserved / padding */
+            __u8    data[64] __attribute__((aligned(8)));
+        };
+        """
+        _fields_ = [
+            ("can_id", ctypes.c_uint32),
+            ("len", ctypes.c_uint8),
+            ("flags", ctypes.c_uint8),
+            ("__res0", ctypes.c_uint8),
+            ("__res1", ctypes.c_uint8),
+            ("data", ctypes.c_uint8 * 64)
+        ]
 
     class CANSocket(object):
         def __init__(self, fd):
@@ -114,8 +135,11 @@ except Exception:
             nbytes = libc.read(self.fd, ctypes.byref(buf), bufsize)
             return buf[0:nbytes]
 
-        def send(self, data):
-            frame = can_frame()
+        def send(self, data, canfd=False):
+            if canfd:
+                frame = canfd_frame()
+            else:
+                frame = can_frame()
             ctypes.memmove(ctypes.byref(frame), data, ctypes.sizeof(frame))
             return libc.write(self.fd, ctypes.byref(frame), ctypes.sizeof(frame))
 
@@ -126,7 +150,7 @@ except Exception:
             libc.close(self.fd)
 
     def get_socket(ifname):
-        socket_fd = libc.socket(AF_CAN, socket.SOCK_RAW, CAN_RAW)
+        socket_fd = libc.socket(AF_CAN, socket.SOCK_RAW, CAN_RAW_FD_FRAMES)
         if socket_fd < 0:
             raise DriverError('Could not open socket')
 
@@ -153,6 +177,8 @@ SO_TIMESTAMP = 29
 
 class SocketCAN(AbstractDriver):
     FRAME_FORMAT = '=IB3x8s'
+    FDFRAME_FORMAT = '=IBB2x64s'
+    FDFRAME_SIZE = 72
     FRAME_SIZE = 16
     TIMEVAL_FORMAT = '@LL'
     TX_QUEUE_SIZE = 1000
@@ -176,7 +202,7 @@ class SocketCAN(AbstractDriver):
         # Timestamping
         if NATIVE_SOCKETCAN:
             self.socket.setsockopt(socket.SOL_SOCKET, SO_TIMESTAMP, 1)
-
+            self.socket.setsockopt(SOL_CAN_RAW, CAN_RAW_FD_FRAMES, 1)
         ppm = lambda x: x / 1e6
         milliseconds = lambda x: x * 1e-3
 
@@ -204,8 +230,12 @@ class SocketCAN(AbstractDriver):
                 while not self._writer_thread_should_stop:
                     try:
                         message_id = frame.id | (CAN_EFF_FLAG if frame.extended else 0)
-                        message_pad = bytes(frame.data) + b'\x00' * (8 - len(frame.data))
-                        raw_message = struct.pack(self.FRAME_FORMAT, message_id, len(frame.data), message_pad)
+                        if frame.canfd:
+                            message_pad = bytes(frame.data) + bytes(b'\x00' * (64 - len(frame.data)))
+                            raw_message = struct.pack(self.FDFRAME_FORMAT, message_id, len(frame.data), 1, message_pad)
+                        else:
+                            message_pad = bytes(frame.data) + b'\x00' * (8 - len(frame.data))
+                            raw_message = struct.pack(self.FRAME_FORMAT, message_id, len(frame.data), message_pad)
 
                         self.socket.send(raw_message)
 
@@ -252,8 +282,8 @@ class SocketCAN(AbstractDriver):
 
             if NATIVE_SOCKETCAN:
                 # Reading the frame together with timestamps in the ancillary data structures
-                ancillary_len = 64   # Arbitrary value, must be large enough to accommodate all ancillary data
-                packet_raw, ancdata, _flags, _addr = self.socket.recvmsg(self.FRAME_SIZE,
+                ancillary_len = 128   # Arbitrary value, must be large enough to accommodate all ancillary data
+                packet_raw, ancdata, _flags, _addr = self.socket.recvmsg(self.FDFRAME_SIZE,
                                                                          socket.CMSG_SPACE(ancillary_len))
 
                 # Parsing the timestamps
@@ -262,26 +292,29 @@ class SocketCAN(AbstractDriver):
                             sec, usec = struct.unpack(self.TIMEVAL_FORMAT, cmsg_data)
                             ts_real = sec + usec * 1e-6
             else:
-                packet_raw = self.socket.recv(self.FRAME_SIZE)
+                packet_raw = self.socket.recv(self.FDFRAME_SIZE)
 
             # Parsing the frame
-            can_id, can_dlc, can_data = struct.unpack(self.FRAME_FORMAT, packet_raw)
+            canfd = False
+            if len(packet_raw) <= self.FRAME_SIZE:
+                can_id, can_len, can_data = struct.unpack(self.FRAME_FORMAT, packet_raw)
+            else:
+                can_id, can_len, _, can_data = struct.unpack(self.FDFRAME_FORMAT, packet_raw)
+                canfd = True
 
             # TODO: receive timestamps directly from hardware
             # TODO: ...or at least obtain timestamps from the socket layer in local monotonic domain
             if ts_real and not ts_mono:
                 ts_mono = self._convert_real_to_monotonic(ts_real)
 
-            frame = CANFrame(can_id & CAN_EFF_MASK, can_data[0:can_dlc], bool(can_id & CAN_EFF_FLAG),
-                             ts_monotonic=ts_mono, ts_real=ts_real)
+            frame = CANFrame(can_id & CAN_EFF_MASK, can_data[0:can_len], bool(can_id & CAN_EFF_FLAG),
+                             ts_monotonic=ts_mono, ts_real=ts_real, canfd=canfd)
             self._rx_hook(frame)
             return frame
 
     def send(self, message_id, message, extended=False, canfd=False):
-        if canfd:
-            raise DriverError('CANFD not supported by SocketCAN')
         self._check_write_feedback()
         try:
-            self._write_queue.put_nowait(CANFrame(message_id, message, extended))
+            self._write_queue.put_nowait(CANFrame(message_id, message, extended, canfd=canfd))
         except queue.Full:
             raise TxQueueFullError()
