@@ -126,11 +126,12 @@ def load_dsdl(*paths, **args):
             dsdl_path = pkg_resources.resource_filename(__name__, "dsdl_specs")  # @UndefinedVariable
             # check if we are a package, if not directly use relative DSDL path
             if not os.path.exists(dsdl_path):
-                DSDL_paths = [ "../../DSDL", "../../../../../DroneCAN/DSDL" ]
+                DSDL_paths = [ "../../DSDL", "../../../../../DroneCAN/DSDL", "../../../../dsdl"]
                 for p in DSDL_paths:
                     dpath = os.path.join(os.path.dirname(__file__), p)
                     if os.path.exists(dpath):
                         dsdl_path = dpath
+                        logger.debug('Found DSDL at: '.format(dsdl_path))
                         break
             if not os.path.exists(dsdl_path):
                 raise UAVCANException('failed to find DSDL path')
@@ -147,8 +148,8 @@ def load_dsdl(*paths, **args):
             if os.path.isdir(custom_path):
                 paths += [f for f in [os.path.join(custom_path, f) for f in os.listdir(custom_path)]
                           if os.path.isdir(f)]
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning('DSDL load exception: {}'.format(e))
 
     root_namespace = Namespace()
     dtypes = dsdl.parse_namespaces(paths)
