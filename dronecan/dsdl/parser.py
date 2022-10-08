@@ -298,6 +298,8 @@ class CompoundType(Type):
         Computes DSDL signature of this type.
         Please refer to the specification for details about signatures.
         """
+        if self.override_signature is not None:
+            return self.override_signature
         return compute_signature(self.get_dsdl_signature_source_definition())
 
     def get_normalized_definition(self):
@@ -641,6 +643,7 @@ class Parser:
             fields, constants, resp_fields, resp_constants = [], [], [], []
             union, resp_union = False, False
             response_part = False
+            override_signature = None
             for num, tokens in numbered_lines:
                 try:
                     if tokens == ['---']:
@@ -656,6 +659,11 @@ class Parser:
                             enforce(not union, 'Data structure has already been declared as union')
                             union = True
                         continue
+
+                    if len(tokens) == 2 and tokens[0] == 'OVERRIDE_SIGNATURE':
+                        override_signature = int(tokens[1],16)
+                        continue
+
                     attr = self._parse_line(filename, tokens)
                     if attr.name and attr.name in all_attributes_names:
                         error('Duplicated attribute name [%s]', attr.name)
@@ -682,6 +690,7 @@ class Parser:
                 t.response_constants = resp_constants
                 t.request_union = union
                 t.response_union = resp_union
+                t.override_signature = override_signature
                 max_bitlen = t.get_max_bitlen_request(), t.get_max_bitlen_response()
                 max_bytelen = tuple(map(bitlen_to_bytelen, max_bitlen))
             else:
@@ -689,6 +698,7 @@ class Parser:
                 t.fields = fields
                 t.constants = constants
                 t.union = union
+                t.override_signature = override_signature
                 max_bitlen = t.get_max_bitlen()
                 max_bytelen = bitlen_to_bytelen(max_bitlen)
 
