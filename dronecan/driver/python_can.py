@@ -84,12 +84,20 @@ else:
                 try:
                     while not self._writer_thread_should_stop:
                         try:
-                            msg = can.Message(
-                                arbitration_id=frame.id,
-                                extended_id=frame.extended,
-                                dlc=len(frame.data),
-                                data=list(frame.data),
-                            )
+                            if can.__version__ >= '4.0.0':
+                                msg = can.Message(
+                                    arbitration_id=frame.id,
+                                    is_extended_id=frame.extended,
+                                    dlc=len(frame.data),
+                                    data=list(frame.data),
+                                )
+                            else:
+                                msg = can.Message(
+                                    arbitration_id=frame.id,
+                                    extended_id=frame.extended,
+                                    dlc=len(frame.data),
+                                    data=list(frame.data),
+                                )
                             self._bus.send(msg)
                             self._bus.flush_tx_buffer()
 
