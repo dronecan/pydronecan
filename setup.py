@@ -11,6 +11,7 @@
 import os
 import sys
 from setuptools import setup
+from io import open
 
 __version__ = None
 VERSION_FILE = os.path.join(os.path.dirname(__file__), 'dronecan', 'version.py')
