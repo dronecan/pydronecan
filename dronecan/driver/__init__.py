@@ -41,6 +41,9 @@ def make_driver(device_name, **kwargs):
     windows_com_port = device_name.replace('\\', '').replace('.', '').lower().startswith('com')
     unix_tty = device_name.startswith('/dev/')
 
+    if device_name.startswith('PCAN'):
+        kwargs['bustype'] = 'pcan'
+
     if device_name.startswith("mavcan:"):
         if not have_mavcan:
             raise DriverError('MAVCAN is not available, ensure pymavlink is installed')
