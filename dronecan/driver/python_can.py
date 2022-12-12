@@ -39,7 +39,7 @@ else:
                 if channel is None:
                     self._bus = can.interface.Bus() # get bus from environment's config file
                 else:
-                    if not hasattr(_extras,'bustype'):
+                    if not 'bustype' in _extras:
                         _extras['bustype'] = 'socketcan'
                     self._bus = can.interface.Bus(channel=channel, bustype=_extras['bustype'], bitrate=_extras['bitrate'])
             except Exception as ex:
