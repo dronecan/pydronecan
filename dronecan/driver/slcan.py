@@ -719,7 +719,10 @@ class SLCAN(AbstractDriver):
 
         # Removing all unused stuff, because it breaks inter process communications.
         kwargs = copy.copy(kwargs)
-        keep_keys = inspect.getargspec(_io_process).args
+        if hasattr(inspect, 'getargspec'):
+            keep_keys = inspect.getargspec(_io_process).args
+        else:
+            keep_keys = inspect.getfullargspec(_io_process).args
         for key in list(kwargs.keys()):
             if key not in keep_keys:
                 del kwargs[key]
