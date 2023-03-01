@@ -41,6 +41,7 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue):
     last_enable = time.time()
     conn = None
     filter_list = None
+    signing_key = None
 
     def connect():
         nonlocal conn, baudrate
@@ -49,6 +50,9 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue):
                                           dialect='ardupilotmega')
         if conn is None:
             raise DriverError('unable to connect to %s' % url)
+        nonlocal signing_key
+        if signing_key is not None:
+            conn.setup_signing(signing_key, sign_outgoing=True)
 
     def reconnect():
         while True:
@@ -100,6 +104,10 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue):
         elif m.command == "FilterList":
             nonlocal filter_list
             filter_list = m.data
+        elif m.command == "SigningKey":
+            nonlocal signing_key
+            signing_key = m.data
+            conn.setup_signing(signing_key, sign_outgoing=True)
 
     connect()
     enable_can_forward()
@@ -239,5 +247,21 @@ class MAVCAN(AbstractDriver):
     def get_filter_list(self):
         '''get the current filter list'''
         return self.filter_list
+
+    def passphrase_to_key(self, passphrase):
+        '''convert a passphrase to a 32 byte key'''
+        import hashlib
+        h = hashlib.new('sha256')
+        if sys.version_info[0] >= 3:
+            passphrase = passphrase.encode('ascii')
+        h.update(passphrase)
+        return h.digest()
+
+    def set_signing_passphrase(self, passphrase):
+        '''set MAVLink2 signing passphrase'''
+        signing_key = self.passphrase_to_key(passphrase)
+        self.tx_queue.put_nowait(ControlMessage('SigningKey', signing_key))
+
+
 
     
