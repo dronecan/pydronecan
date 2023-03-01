@@ -148,4 +148,10 @@ class AbstractDriver(object):
         '''get the current filter list'''
         return None
     
-    
+    def set_bus(self, busnum):
+        '''set the remote bus number to attach to'''
+        pass
+
+    def set_signing_passphrase(self, passphrase):
+        '''set MAVLink2 signing passphrase'''
+        pass
