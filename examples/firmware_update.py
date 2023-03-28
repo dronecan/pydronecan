@@ -1,8 +1,9 @@
-#!/bin/python3
+#!/usr/bin/env python3
 
-import dronecan, time, math
+import dronecan
 from argparse import ArgumentParser
 
+import time
 import sys
 import os
 
@@ -12,18 +13,13 @@ import os
 parser = ArgumentParser(description='dump all DroneCAN messages')
 parser.add_argument("--bitrate", default=1000000, type=int, help="CAN bit rate")
 parser.add_argument("--node-id", default=100, type=int, help="CAN node ID")
-parser.add_argument("--dna-server", action='store_true', default=True, help="run DNA server")
+parser.add_argument("--dna", action='store_true', default=True, help="run dynamic node allocation server")
 parser.add_argument("--port", default='/dev/ttyACM0', type=str, help="serial port")
-parser.add_argument("--app-firmware", default=None, type=str, help="serial port")
+parser.add_argument("--fw", default='', required=True, type=str, help="app firmware path")
 
 args = parser.parse_args()
 
-firmware_path = args.app_firmware
-
-if not os.path.exists(firmware_path):
-    print('Please provide a valid firmware file path\n\t--app-firmware <path>')
-    print(firmware_path)
-    sys.exit(1)
+firmware_path = os.path.abspath(args.fw)
 
 # We need to symlink the firmware file path because of 40 character limit
 file_path = '/tmp/fw.uavcan.bin'
@@ -46,7 +42,7 @@ node = dronecan.make_node(args.port, node_id=args.node_id, bitrate=args.bitrate)
 
 node_monitor = dronecan.app.node_monitor.NodeMonitor(node)
 
-if args.dna_server:
+if args.dna:
     dynamic_node_id_allocator = dronecan.app.dynamic_node_id.CentralizedServer(node, node_monitor)
 
 
