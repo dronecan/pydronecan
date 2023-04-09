@@ -209,8 +209,7 @@ class MAVCAN(AbstractDriver):
                 if time.time() >= tstart + timeout:
                     return
 
-    def send(self, message_id, message, extended=False, canfd=False):
-        frame = CANFrame(message_id, message, extended, canfd=canfd)
+    def send_frame(self, frame):
         self._tx_hook(frame)
         self.tx_queue.put_nowait(frame)
 
