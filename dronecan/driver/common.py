@@ -155,3 +155,6 @@ class AbstractDriver(object):
     def set_signing_passphrase(self, passphrase):
         '''set MAVLink2 signing passphrase'''
         pass
+
+    def send(self, message_id, message, extended=False, canfd=False):
+        self.send_frame(CANFrame(message_id, message, extended, canfd=canfd))

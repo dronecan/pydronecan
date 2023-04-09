@@ -861,9 +861,8 @@ class SLCAN(AbstractDriver):
                 if time.monotonic() >= deadline:
                     return
 
-    def send(self, message_id, message, extended=False, canfd=False):
+    def send_frame(self, frame):
         self._check_alive()
-        frame = CANFrame(message_id, message, extended, canfd=canfd)
         try:
             self._tx_queue.put_nowait(frame)
         except queue.Full:

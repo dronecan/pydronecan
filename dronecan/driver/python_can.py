@@ -160,11 +160,11 @@ else:
             except Exception as ex:
                 logger.error("Receive exception", exc_info=True)
 
-        def send(self, message_id, message, extended=False, canfd=False):
-            if canfd:
+        def send_frame(self, frame):
+            if frame.canfd:
                 raise DriverError('CANFD not supported by PythonCAN')
             self._check_write_feedback()
             try:
-                self._write_queue.put_nowait(CANFrame(message_id, message, extended))
+                self._write_queue.put_nowait(frame)
             except queue.Full:
                 raise TxQueueFullError()
