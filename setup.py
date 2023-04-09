@@ -51,7 +51,8 @@ try:
             'License :: OSI Approved :: MIT License',
             'Programming Language :: Python',
         ],
-        keywords=''
+        keywords='',
+        scripts = [ 'tools/dronecan_bridge.py' ]
     )
     # ensure dsdl specs are not empty
     if  len(args['package_data']['dronecan']) == 0:
