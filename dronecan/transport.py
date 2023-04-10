@@ -864,6 +864,7 @@ class Transfer(object):
         for frame in frames:
             if frame.canfd:    # we are in CANFD world can't use tao
                 tao = False
+                self.canfd = True
         # noinspection PyProtectedMember
         self.payload._unpack(bits_from_bytes(payload_bytes), tao)
 
