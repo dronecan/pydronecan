@@ -35,9 +35,9 @@ class BridgeThread(object):
     def __init__(self, d1, d2, name):
         self.d1 = d1
         self.d2 = d2
+        self.count = 0
         self.thd = threading.Thread(target=self.loop, name=name)
         self.thd.start()
-        self.count = 0
 
     def loop(self):
         while True:
