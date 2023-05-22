@@ -4,19 +4,10 @@
 '''
 
 import dronecan, time, math, binascii, sys
+from multiprocessing import freeze_support
 
 # get command line arguments
 from argparse import ArgumentParser
-
-parser = ArgumentParser(description='Hobbywing ESC control example')
-parser.add_argument("--bitrate", default=1000000, type=int, help="CAN bit rate")
-parser.add_argument("--node-id", default=100, type=int, help="CAN node ID")
-parser.add_argument("--target-node-id", default=1, type=int, help="CAN node ID")
-parser.add_argument("--signing-key", default=None, help="MAVLink2 signing key for mavcan")
-parser.add_argument("port", default=None, type=str, help="serial port")
-parser.add_argument("command", help="command")
-parser.add_argument("args", nargs='*', help="command arguments")
-args = parser.parse_args()
 
 def handle_msg(msg):
     if msg is not None:
@@ -25,23 +16,15 @@ def handle_msg(msg):
         print("No reply")
     sys.exit(0)
 
-# Initializing a DroneCAN node instance.
-node = dronecan.make_node(args.port, node_id=args.node_id, bitrate=args.bitrate)
-
-if args.signing_key is not None:
-    node.can_driver.set_signing_passphrase(args.signing_key)
-
-# Initializing a node monitor, so we can see what nodes are online
-node_monitor = dronecan.app.node_monitor.NodeMonitor(node)
-
 def wait_online():
     '''wait for some nodes to come online'''
     print('Waiting for other nodes to become online...')
-    while len(node_monitor.get_all_node_id()) <= 1:
+    while len(node_monitor.get_all_node_id()) < 1:
         try:
             node.spin(timeout=1)
         except Exception as ex:
             print(ex)
+    print("done")
 
 
 def command_SetBaud(arguments):
@@ -67,6 +50,9 @@ def command_SetBaud(arguments):
 
 def handle_get_info(msg):
     '''handle GetInformation reply'''
+    if msg is None:
+        print("No response")
+        sys.exit(1)
     r = msg.response
     if r.option == 0:
         print("comms_sw_ver %s" % bytes(r.v0).decode("utf-8"))
@@ -104,7 +90,8 @@ def command_GetMaintenance(arguments):
 def handle_GetESCId(msg):
     '''handle GetEscID reply'''
     r = msg.message
-    print("ESC[%u] NodeID=%d ThrottleNum=%d" % (msg.transfer.source_node_id, r.payload[0], r.payload[1]))
+    if len(r.payload) >= 2:
+        print("ESC[%u] NodeID=%d ThrottleNum=%d" % (msg.transfer.source_node_id, r.payload[0], r.payload[1]))
 
 def command_GetESCId(arguments):
     '''get ESC IDs from all ESCs'''
@@ -227,14 +214,37 @@ commands = {
     "RawCommand" : command_RawCommand,
 }
 
-if not args.command in commands:
-    clist = ','.join(commands.keys())
-    print(f"Invalid command '{args.command}' - must be one of {clist}")
-    sys.exit(1)
+if __name__ == "__main__":
+    freeze_support()
+    parser = ArgumentParser(description='Hobbywing ESC control example')
+    parser.add_argument("--bitrate", default=1000000, type=int, help="CAN bit rate")
+    parser.add_argument("--node-id", default=100, type=int, help="CAN node ID")
+    parser.add_argument("--target-node-id", default=1, type=int, help="CAN node ID")
+    parser.add_argument("--signing-key", default=None, help="MAVLink2 signing key for mavcan")
+    parser.add_argument("port", default=None, type=str, help="serial port")
+    parser.add_argument("command", help="command")
+    parser.add_argument("args", nargs='*', help="command arguments")
+    args = parser.parse_args()
 
-wait_online()
+    
+    if not args.command in commands:
+        clist = ','.join(commands.keys())
+        print(f"Invalid command '{args.command}' - must be one of {clist}")
+        sys.exit(1)
 
-commands[args.command](args.args)
+        # Initializing a DroneCAN node instance.
+    node = dronecan.make_node(args.port, node_id=args.node_id, bitrate=args.bitrate)
 
-# run for 2 seconds
-node.spin(2)
+    if args.signing_key is not None:
+        node.can_driver.set_signing_passphrase(args.signing_key)
+
+    # Initializing a node monitor, so we can see what nodes are online
+    node_monitor = dronecan.app.node_monitor.NodeMonitor(node)
+
+        
+    wait_online()
+
+    commands[args.command](args.args)
+
+    # run for 2 seconds
+    node.spin(2)
