@@ -12,6 +12,7 @@ parser = ArgumentParser(description='Hobbywing ESC control example')
 parser.add_argument("--bitrate", default=1000000, type=int, help="CAN bit rate")
 parser.add_argument("--node-id", default=100, type=int, help="CAN node ID")
 parser.add_argument("--target-node-id", default=1, type=int, help="CAN node ID")
+parser.add_argument("--signing-key", default=None, help="MAVLink2 signing key for mavcan")
 parser.add_argument("port", default=None, type=str, help="serial port")
 parser.add_argument("command", help="command")
 parser.add_argument("args", nargs='*', help="command arguments")
@@ -26,6 +27,9 @@ def handle_msg(msg):
 
 # Initializing a DroneCAN node instance.
 node = dronecan.make_node(args.port, node_id=args.node_id, bitrate=args.bitrate)
+
+if args.signing_key is not None:
+    node.can_driver.set_signing_passphrase(args.signing_key)
 
 # Initializing a node monitor, so we can see what nodes are online
 node_monitor = dronecan.app.node_monitor.NodeMonitor(node)
