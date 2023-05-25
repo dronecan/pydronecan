@@ -247,4 +247,9 @@ if __name__ == "__main__":
     commands[args.command](args.args)
 
     # run for 2 seconds
-    node.spin(2)
+    startt = time.time()
+    while time.time() - startt < 2:
+        try:
+            node.spin(0.1)
+        except Exception as ex:
+            pass
