@@ -188,6 +188,11 @@ class MAVCAN(AbstractDriver):
         self.proc.daemon = True
         self.proc.start()
 
+        # allow signing pass phrase in environment
+        pass_phrase = os.environ.get("DRONECAN_SIGNING_KEY",None)
+        if pass_phrase:
+            self.set_signing_passphrase(pass_phrase)
+
     def close(self):
         pass
 
