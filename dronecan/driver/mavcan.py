@@ -42,6 +42,7 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue):
     conn = None
     filter_list = None
     signing_key = None
+    last_loss_print_t = time.time()
 
     def connect():
         nonlocal conn, baudrate
@@ -152,9 +153,13 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue):
         except Exception as ex:
             reconnect()
             continue
+        now = time.time()
         if m is None:
-            if time.time() - last_enable > 1:
+            if now - last_enable > 1:
                 enable_can_forward()
+            if now - last_loss_print_t > 5:
+                last_loss_print_t = now
+                print("MAVLink packet loss %.2f%%" % conn.packet_loss())
             continue
         if target_system == 0:
             target_system = m.get_srcSystem()
