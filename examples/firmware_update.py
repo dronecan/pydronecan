@@ -6,6 +6,10 @@ from argparse import ArgumentParser
 import time
 import sys
 import os
+import base64
+import zlib
+import struct
+from dronecan.introspect import value_to_constant_name, to_yaml
 
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
@@ -13,6 +17,7 @@ import os
 parser = ArgumentParser(description='dump all DroneCAN messages')
 parser.add_argument("--bitrate", default=1000000, type=int, help="CAN bit rate")
 parser.add_argument("--node-id", default=100, type=int, help="CAN node ID")
+parser.add_argument("--target-node-id", default=-1, type=int, help="Target CAN node ID (-1 for auto)")
 parser.add_argument("--dna", action='store_true', default=True, help="run dynamic node allocation server")
 parser.add_argument("--port", default='/dev/ttyACM0', type=str, help="serial port")
 parser.add_argument("--fw", default='', required=True, type=str, help="app firmware path")
@@ -21,19 +26,16 @@ args = parser.parse_args()
 
 firmware_path = os.path.abspath(args.fw)
 
-# We need to symlink the firmware file path because of 40 character limit
-file_path = '/tmp/fw.uavcan.bin'
-if os.path.islink(file_path):
-    os.unlink(file_path)
-os.symlink(firmware_path, file_path)
-
 # Ensure it is readable
 try:
-    with open(file_path, 'rb') as f:
+    with open(firmware_path, 'rb') as f:
         f.read(100)
 except Exception as ex:
     print('Could not read file')
     sys.exit(1)
+
+# map file path to a hash to keep it in a single packet
+file_hash = base64.b64encode(struct.pack("<I",zlib.crc32(bytearray(firmware_path,'utf-8'))))[:7].decode('utf-8')
 
 # Create the CAN Node
 global node
@@ -51,11 +53,15 @@ print('Waiting for node to come online')
 while len(node_monitor.get_all_node_id()) < 1:
     node.spin(timeout=1)
 
-target_node_id = int(list(node_monitor.get_all_node_id())[0])
-print("Discovered node: " + str(target_node_id))
+if args.target_node_id != -1:
+    target_node_id = args.target_node_id
+else:
+    target_node_id = int(list(node_monitor.get_all_node_id())[0])
+print("Target node: " + str(target_node_id))
 
 # Set up the file server
-file_server = dronecan.app.file_server.FileServer(node, lookup_paths=file_path)
+file_server = dronecan.app.file_server.FileServer(node,
+                                                  path_map={file_hash:firmware_path})
 
 update_started = False
 update_complete = False
@@ -64,20 +70,21 @@ def on_node_status(e):
     global update_started
     global update_complete
 
-    if e.transfer.source_node_id == target_node_id and e.message.mode == e.message.MODE_SOFTWARE_UPDATE \
-    and e.message.health < e.message.HEALTH_ERROR:
-        if not update_started:
-            print('Performing update')
-            update_started = True;
-    else:
-        if update_started:
-            print('Update complete')
-            update_complete = True;
+    if e.transfer.source_node_id == target_node_id:
+        if e.message.mode == e.message.MODE_SOFTWARE_UPDATE:
+            if not update_started:
+                print('Performing update')
+                update_started = True;
+                #request_update()
+        else:
+            if update_started:
+                print('Update complete')
+                update_complete = True;
 
 
 def on_response(e):
     if e is not None:
-        print('Firmware update response:', e.response)
+        print('Firmware update response:', to_yaml(e.response))
         if e.response.error != e.response.ERROR_IN_PROGRESS:
             # NOTE: the timing here is fickle, we can't be too early
             # because we are trying to catch the bootloader
@@ -91,7 +98,7 @@ def request_update():
         print('REQUESTING UPDATE')
         request = dronecan.uavcan.protocol.file.BeginFirmwareUpdate.Request(
                     source_node_id=node.node_id,
-                    image_file_remote_path=dronecan.uavcan.protocol.file.Path(path=file_path))
+                    image_file_remote_path=dronecan.uavcan.protocol.file.Path(path=file_hash))
         node.request(request, target_node_id, on_response, priority=30)
 
 
