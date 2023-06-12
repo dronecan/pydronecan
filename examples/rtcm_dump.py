@@ -30,6 +30,7 @@ def handle_RTCMStream(msg):
         if decoder.read(chr(b)):
             print("packet len %u ID %u" % (len(decoder.get_packet()), decoder.get_packet_ID()))
     rtcm_file.write(data)
+    rtcm_file.flush()
 
 # callback for printing ESC status message to stdout in human-readable YAML format.
 node.add_handler(dronecan.uavcan.equipment.gnss.RTCMStream, handle_RTCMStream)
