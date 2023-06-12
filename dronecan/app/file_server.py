@@ -32,11 +32,12 @@ def _try_resolve_relative_path(search_in, rel_path):
 
 # noinspection PyBroadException
 class FileServer(object):
-    def __init__(self, node, lookup_paths=None):
+    def __init__(self, node, lookup_paths=None, path_map=None):
         if node.is_anonymous:
             raise dronecan.UAVCANException('File server cannot be launched on an anonymous node')
 
         self.lookup_paths = lookup_paths or []
+        self.path_map = path_map
 
         self._path_hit_counters = defaultdict(int)
         self._handles = []
@@ -57,7 +58,10 @@ class FileServer(object):
         return dict(self._path_hit_counters)
 
     def _resolve_path(self, relative):
-        rel = relative.path.decode().replace(chr(relative.SEPARATOR), os.path.sep)
+        rel_decoded = relative.path.decode()
+        if self.path_map and rel_decoded in self.path_map:
+            return self.path_map[rel_decoded]
+        rel = rel_decoded.replace(chr(relative.SEPARATOR), os.path.sep)
         out = _try_resolve_relative_path(self.lookup_paths, rel)
         if not out:
             raise OSError(errno.ENOENT)
