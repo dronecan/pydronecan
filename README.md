@@ -9,7 +9,7 @@ DroneCAN is a lightweight protocol designed for reliable communication in aerosp
 ## Documentation
 
 * [DroneCAN v1 website](http://dronecan.github.io)
-* [Pydronecan documentation and tutorials](http://dronecan.org/Implementations/Pydronecan/)
+* [Pydronecan documentation and tutorials](http://dronecan.github.io/Implementations/Pydronecan/)
 
 ## Installation
 
