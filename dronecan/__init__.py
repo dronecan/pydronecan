@@ -57,6 +57,7 @@ from dronecan.transport import get_dronecan_data_type, \
     get_constants, get_fields, \
     is_request, is_response
 from dronecan.introspect import value_to_constant_name, to_yaml
+from dronecan.utility import DroneCANSerial
 
 
 TRANSFER_PRIORITY_LOWEST = 31
