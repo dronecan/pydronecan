@@ -397,7 +397,9 @@ class Node(Scheduler):
         :param timeout: The method will return once this amount of time expires.
                         If None, the method will never return.
                         If zero, the method will handle only those events that are ready, then return immediately.
+        :returns: number of received frames
         """
+        count = 0
         if timeout != 0:
             deadline = (time.monotonic() + timeout) if timeout is not None else sys.float_info.max
 
@@ -413,8 +415,10 @@ class Node(Scheduler):
                 frame = self._can_driver.receive(read_timeout)
                 if frame:
                     self._recv_frame(frame)
+                    return 1
+                return 0
 
-            execute_once()
+            count += execute_once()
             while time.monotonic() < deadline:
                 execute_once()
         else:
@@ -422,9 +426,11 @@ class Node(Scheduler):
                 frame = self._can_driver.receive(0)
                 if frame:
                     self._recv_frame(frame)
+                    count += 1
                 else:
                     break
             self._poll_scheduler_and_get_next_deadline()
+        return count
 
     def request(self, payload, dest_node_id, callback, priority=None, timeout=None, canfd=None):
         self._throw_if_anonymous()
