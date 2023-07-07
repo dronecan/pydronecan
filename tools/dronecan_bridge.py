@@ -41,10 +41,16 @@ class BridgeThread(object):
 
     def loop(self):
         while True:
-            frame = self.d1.receive(timeout=0.1)
+            try:
+                frame = self.d1.receive(timeout=0.1)
+            except dronecan.driver.common.TransferError:
+                continue
             if frame:
                 self.count += 1
-                self.d2.send_frame(frame)
+                try:
+                    self.d2.send_frame(frame)
+                except dronecan.driver.common.TxQueueFullError:
+                    pass
 
 t1 = BridgeThread(d1, d2, "d1->d2")
 t2 = BridgeThread(d2, d1, "d2->d1")
