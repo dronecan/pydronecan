@@ -50,7 +50,7 @@ class DroneCANSerial(object):
     def handle_Targetted(self, msg):
         if msg.transfer.source_node_id != self.target_node:
             return
-        if msg.message.target_node != self.node_id:
+        if msg.message.target_node != self.node.node_id:
             return
         self.buf.extend(msg.message.buffer)
 
