@@ -29,7 +29,7 @@ class DroneCANSerial(object):
         self.node = node
         if node is None:
             self.node = dronecan.make_node(uri, node_id=self.node_id)
-        self.node.add_handler(dronecan.uavcan.tunnel.Targetted, self.handle_Targetted)
+        self.handle = self.node.add_handler(dronecan.uavcan.tunnel.Targetted, self.handle_Targetted)
         self.baudrate = baudrate
         self.last_send = 0
 
@@ -42,9 +42,13 @@ class DroneCANSerial(object):
             # ignore corrupt frames
             pass
 
+    def __del__(self):
+        '''close port'''
+        self.close()
+
     def close(self):
         '''close port'''
-        self.node.remove_handlers(dronecan.uavcan.tunnel.Targetted)
+        self.handle.remove()
         self.node = None
 
     def handle_Targetted(self, msg):
