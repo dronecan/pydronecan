@@ -90,6 +90,7 @@ class NodeMonitor(object):
     def __init__(self, node):
         self._update_callbacks = []
         self._handle = node.add_handler(uavcan.protocol.NodeStatus, self._on_node_status)  # @UndefinedVariable
+        self._info_handle = node.add_handler(uavcan.protocol.GetNodeInfo, self._on_info_response, sniff_response=True)  # @UndefinedVariable
         self._registry = {}  # {node_id: Entry}
         self._timer = node.periodic(1, self._remove_stale)
 
@@ -189,6 +190,8 @@ class NodeMonitor(object):
 
         try:
             entry = self.get(e.transfer.source_node_id)
+            if entry._info_requested_at is None:
+                entry._info_requested_at = entry.monotonic_timestamp
         except KeyError:
             entry = self.Entry()
             self._registry[e.transfer.source_node_id] = entry

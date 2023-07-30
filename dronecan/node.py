@@ -146,28 +146,32 @@ class HandlerDispatcher(object):
         self._node = node
         self._catch_exceptions = catch_exceptions
 
-    def add_handler(self, dronecan_type, handler, **kwargs):
+    def add_handler(self, dronecan_type, handler, sniff_response=False, **kwargs):
         service = False
         if dronecan_type is not None and dronecan_type.kind == dronecan_type.KIND_SERVICE:
             service = True
-
+        sniff_response = sniff_response and service
+        logger.info('Adding handler for %s %s', 'service' if service else 'message', dronecan_type)
         # If handler is a class, create a wrapper function and register it as a regular callback
         if inspect.isclass(handler):
             def class_handler_adapter(event):
                 h = handler(event, **kwargs)
-                if service:
+                if service and not sniff_response:
                     h.on_request()
                     return h.response
                 else:
                     h.on_message()
 
-            return self.add_handler(dronecan_type, class_handler_adapter)
+            return self.add_handler(dronecan_type, class_handler_adapter, sniff_response)
 
         # At this point process the handler as a regular callback
         def call(transfer):
-            event = TransferEvent(transfer, self._node, 'request' if service else 'message')
+            msgtype = 'response' if sniff_response else 'request'
+            event = TransferEvent(transfer, self._node, msgtype if service else 'message')
             result = handler(event, **kwargs)
-            if service:
+            if service and not sniff_response:
+                if not transfer.request_not_response:
+                    return
                 if result is None:
                     raise UAVCANException('Service request handler did not return a response [%r, %r]' %
                                           (dronecan_type, handler))
@@ -180,7 +184,7 @@ class HandlerDispatcher(object):
                     raise UAVCANException('Message request handler did not return None [%r, %r]' %
                                           (dronecan_type, handler))
 
-        entry = dronecan_type, call
+        entry = dronecan_type, call, sniff_response
         self._handlers.append(entry)
         return HandleRemover(lambda: self._handlers.remove(entry))
 
@@ -188,7 +192,7 @@ class HandlerDispatcher(object):
         self._handlers = list(filter(lambda x: x[0] != dronecan_type, self._handlers))
 
     def call_handlers(self, transfer):
-        for dronecan_type, wrapper in self._handlers:
+        for dronecan_type, wrapper, _ in self._handlers:
             if dronecan_type is None or dronecan_type == get_dronecan_data_type(transfer.payload):
                 try:
                     wrapper(transfer)
@@ -198,6 +202,16 @@ class HandlerDispatcher(object):
                     if not self._catch_exceptions:
                         raise e
 
+    def is_response_sniffing_enabled(self, transfer):
+        if not transfer.service_not_message:
+            return False
+        if transfer.request_not_response:
+            return False
+        dronecan_type = get_dronecan_data_type(transfer.payload)
+        for t, _, sniff_response in self._handlers:
+            if t == dronecan_type and sniff_response:
+                return True
+        return False
 
 class TransferHookDispatcher(object):
     TRANSFER_DIRECTION_INCOMING = 'rx'
@@ -332,7 +346,9 @@ class Node(Scheduler):
                     del self._outstanding_requests[key]
                     del self._outstanding_request_callbacks[key]
                     break
-        elif not transfer.service_not_message or transfer.dest_node_id == self._node_id:
+        elif not transfer.service_not_message or \
+            self._handler_dispatcher.is_response_sniffing_enabled(transfer) or \
+            transfer.dest_node_id == self._node_id:
             # This is a request or a broadcast; look up the appropriate handler by data type ID
             self._handler_dispatcher.call_handlers(transfer)
 
