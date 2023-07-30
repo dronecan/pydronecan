@@ -12,6 +12,7 @@ import sys
 from .python_can import PythonCAN
 from .slcan import SLCAN
 from .mcast import mcast
+from .file import file
 try:
     from .mavcan import MAVCAN
     have_mavcan = True
@@ -53,6 +54,12 @@ def make_driver(device_name, **kwargs):
         return SLCAN(device_name[6:], **kwargs)
     elif device_name.startswith("mcast:"):
         return mcast(device_name[6:], **kwargs)
+    elif device_name.startswith("filein:"):
+        kwargs['readonly'] = True
+        return file(device_name[7:], **kwargs)
+    elif device_name.startswith("fileout:"):
+        kwargs['readonly'] = False
+        return file(device_name[8:], **kwargs)
     elif windows_com_port or unix_tty:
         if is_mavlink_port(device_name, **kwargs):
             return MAVCAN(device_name, **kwargs)
