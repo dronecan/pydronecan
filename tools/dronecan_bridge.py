@@ -15,6 +15,8 @@ parser = ArgumentParser(description='CAN bridge - connect two CAN interfaces')
 parser.add_argument("--bitrate", default=1000000, type=int, help="CAN bit rate")
 parser.add_argument("port1", default=None, type=str, help="first interface")
 parser.add_argument("port2", default=None, type=str, help="second interface")
+parser.add_argument("--filter-nodeid", nargs='+', type=int, help="filter by node ID"
+                    " (only forward messages from this node ID)")
 args = parser.parse_args()
 
 try:
@@ -36,6 +38,8 @@ class BridgeThread(object):
         self.d1 = d1
         self.d2 = d2
         self.count = 0
+        self.filter_nodeid = args.filter_nodeid
+        print("Filtering Node IDs: %s" % self.filter_nodeid)
         self.thd = threading.Thread(target=self.loop, name=name)
         self.thd.start()
 
@@ -46,8 +50,12 @@ class BridgeThread(object):
             except dronecan.driver.common.TransferError:
                 continue
             if frame:
-                self.count += 1
                 try:
+                    if self.filter_nodeid is not None:
+                        source_node_id = frame.id & 0x7F
+                        if source_node_id not in self.filter_nodeid:
+                            continue
+                    self.count += 1
                     self.d2.send_frame(frame)
                 except dronecan.driver.common.TxQueueFullError:
                     pass
