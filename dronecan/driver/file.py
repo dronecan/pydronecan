@@ -55,6 +55,7 @@ class file(AbstractDriver):
 
     def close(self):
         if self.file is not None:
+            self.file.flush()
             self.file.close()
 
     def __del__(self):
@@ -114,6 +115,8 @@ class file(AbstractDriver):
 
     def receive(self, timeout=None):
         if not self.readonly:
+            if timeout is not None:
+                time.sleep(timeout)
             return None
         curr_time = time.monotonic()
         if self.start_monotonic_ts is None:
