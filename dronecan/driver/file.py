@@ -115,16 +115,18 @@ class file(AbstractDriver):
     def receive(self, timeout=None):
         if not self.readonly:
             return None
+        curr_time = time.monotonic()
         if self.start_monotonic_ts is None:
-            self.start_monotonic_ts = time.monotonic()
+            self.start_monotonic_ts = curr_time
         if self.curr_frame is None:
             self.curr_frame, _ = self._read_frame()
             if self.curr_frame is None:
                 return None
-        if self.curr_frame.ts_monotonic > time.monotonic():
-            if timeout is not None and (self.curr_frame.ts_monotonic - time.monotonic()) <= timeout:
-                # sleep until timeout
-                time.sleep(self.curr_frame.ts_monotonic - time.monotonic())
+        time_to_next_frame = self.curr_frame.ts_monotonic - curr_time
+        if time_to_next_frame > 0:
+            if timeout is not None and time_to_next_frame <= timeout:
+                # sleep until next frame
+                time.sleep(time_to_next_frame)
             else:
                 return None
         self.curr_frame.ts_real = time.time()
