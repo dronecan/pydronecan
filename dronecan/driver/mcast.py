@@ -57,6 +57,14 @@ TX_QUEUE_SIZE = 1000
 
 logger = getLogger(__name__)
 
+RUNNING_ON_WINDOWS = False
+try:
+    # noinspection PyUnresolvedReferences
+    sys.getwindowsversion()
+    RUNNING_ON_WINDOWS = True
+except Exception:
+    pass
+
 def io_process(url, tx_queue, rx_queue):
     port = None
     port_out = None
@@ -79,7 +87,10 @@ def io_process(url, tx_queue, rx_queue):
         if port is None:
             raise DriverError('unable to connect to %s' % url)
         port.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        port.bind((mcast_ip, mcast_port))
+        if RUNNING_ON_WINDOWS:
+            port.bind(('0.0.0.0', mcast_port))
+        else:
+            port.bind((mcast_ip, mcast_port))
         mreq = struct.pack("4sl", socket.inet_aton(mcast_ip), socket.INADDR_ANY)
         port.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
         port.setblocking(0)
