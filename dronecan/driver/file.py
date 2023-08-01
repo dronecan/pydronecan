@@ -40,13 +40,16 @@ class file(AbstractDriver):
         super(file, self).__init__()
         self.filename = filename
         self.start_file_monotonic_ts = 0
+        self.speedup = kwargs.get('speedup', 1)
         # check if read only option selected
         if kwargs.get('readonly', False):
             self.readonly = True
             self.file = open(filename, 'rb')
             self.curr_frame = None
             self.start_monotonic_ts = time.monotonic()
+            self.file_size = os.path.getsize(filename)
             self.set_first_and_last_timestamp()
+            self.eof = False
         else:
             self.readonly = False
             self.file = open(filename, 'wb')
@@ -62,6 +65,9 @@ class file(AbstractDriver):
         self.close()
 
     def _read_frame(self):
+        if (self.file.tell() >= self.file_size):
+            self.eof = True
+            return None, None
         # read header
         header = self.file.read(20)
         if len(header) < 20:
@@ -102,6 +108,7 @@ class file(AbstractDriver):
             if frame is None:
                 break
         # seek to start of file
+        self.eof = False
         self.file.seek(0, os.SEEK_SET)
 
     def get_start_timestamp(self):
@@ -113,8 +120,20 @@ class file(AbstractDriver):
     def set_start_timestamp(self, timestamp):
         self.start_monotonic_ts = timestamp
 
-    def receive(self, timeout=None):
+    def end_of_stream(self):
         if not self.readonly:
+            return False
+        return self.eof
+
+    def stream_progress(self):
+        '''stream progress of the current stream'''
+        if not self.readonly or self.eof:
+            return 100
+        # return file seek position vs file size
+        return (self.file.tell()/self.file_size)*100
+
+    def receive(self, timeout=None):
+        if not self.readonly or self.eof:
             if timeout is not None:
                 time.sleep(timeout)
             return None
@@ -125,7 +144,10 @@ class file(AbstractDriver):
             self.curr_frame, _ = self._read_frame()
             if self.curr_frame is None:
                 return None
-        time_to_next_frame = self.curr_frame.ts_monotonic - curr_time
+        if self.speedup == -1:
+            time_to_next_frame = 0
+        else:
+            time_to_next_frame = (self.curr_frame.ts_monotonic - curr_time)/self.speedup
         if time_to_next_frame > 0:
             if timeout is not None and time_to_next_frame <= timeout:
                 # sleep until next frame

@@ -158,5 +158,13 @@ class AbstractDriver(object):
         '''set MAVLink2 signing passphrase'''
         pass
 
+    def stream_progress(self):
+        '''stream progress of the current stream'''
+        pass
+
+    def end_of_stream(self):
+        '''end of stream'''
+        pass
+
     def send(self, message_id, message, extended=False, canfd=False):
         self.send_frame(CANFrame(message_id, message, extended, canfd=canfd))
