@@ -51,7 +51,12 @@ if args.dna:
 # Waiting for at least one other node to appear online
 print('Waiting for node to come online')
 while len(node_monitor.get_all_node_id()) < 1:
-    node.spin(timeout=1)
+    try:
+        node.spin(timeout=0.2)
+    except KeyboardInterrupt:
+        sys.exit(0)
+    except dronecan.transport.TransferError:
+        pass
 
 if args.target_node_id != -1:
     target_node_id = args.target_node_id
@@ -109,6 +114,7 @@ request_update()
 while not update_started or not update_complete:
     try:
         node.spin(0.1)
-
     except KeyboardInterrupt:
         sys.exit(0)
+    except dronecan.transport.TransferError:
+        pass
