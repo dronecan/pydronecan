@@ -13,68 +13,75 @@ import threading
 from argparse import ArgumentParser
 parser = ArgumentParser(description='CAN bridge - connect two CAN interfaces')
 parser.add_argument("--bitrate", default=1000000, type=int, help="CAN bit rate")
-parser.add_argument("port1", default=None, type=str, help="first interface")
-parser.add_argument("port2", default=None, type=str, help="second interface")
+parser.add_argument("ports", default=None, type=str, nargs='+', help="interfaces")
 parser.add_argument("--filter-nodeid", nargs='+', type=int, help="filter by node ID"
                     " (only forward messages from this node ID)")
 args = parser.parse_args()
 
-try:
-    d1 = dronecan.driver.make_driver(args.port1, bitrate=args.bitrate)
-except Exception as ex:
-    print("Unable to connect to %s - %s" % (args.port1, ex))
+if len(args.ports) < 2:
+    print("Must specify at least 2 ports to connect")
     sys.exit(1)
-print("Connected to %s" % args.port1)
 
-try:
-    d2 = dronecan.driver.make_driver(args.port2, bitrate=args.bitrate)
-except Exception as ex:
-    print("Unable to connect to %s - %s" % (args.port2, ex))
-    sys.exit(1)
-print("Connected to %s" % args.port2)
+drivers = []
+
+for p in args.ports:
+    try:
+        drivers.append(dronecan.driver.make_driver(p, bitrate=args.bitrate))
+    except Exception as ex:
+        print("Unable to connect to %s - %s" % (p, ex))
+        sys.exit(1)
+    print("Connected to %s" % p)
 
 class BridgeThread(object):
-    def __init__(self, d1, d2, name):
-        self.d1 = d1
-        self.d2 = d2
+    def __init__(self, d, drivers, name):
+        self.d = d
+        self.drivers = drivers
         self.count = 0
         self.filter_nodeid = args.filter_nodeid
-        print("Filtering Node IDs: %s" % self.filter_nodeid)
+        if self.filter_nodeid:
+            print("Filtering Node IDs: %s" % self.filter_nodeid)
         self.thd = threading.Thread(target=self.loop, name=name)
         self.thd.start()
 
     def loop(self):
         while True:
             try:
-                frame = self.d1.receive(timeout=0.1)
+                frame = self.d.receive(timeout=0.1)
             except dronecan.driver.common.TransferError:
                 continue
-            if frame:
+            if not frame:
+                continue
+            if self.filter_nodeid is not None:
+                source_node_id = frame.id & 0x7F
+                if source_node_id not in self.filter_nodeid:
+                    continue
+            self.count += 1
+            for d in self.drivers:
+                if d == self.d:
+                    continue
                 try:
-                    if self.filter_nodeid is not None:
-                        source_node_id = frame.id & 0x7F
-                        if source_node_id not in self.filter_nodeid:
-                            continue
-                    self.count += 1
-                    self.d2.send_frame(frame)
+                    d.send_frame(frame)
                 except dronecan.driver.common.TxQueueFullError:
                     pass
 
-t1 = BridgeThread(d1, d2, "d1->d2")
-t2 = BridgeThread(d2, d1, "d2->d1")
+threads = []
+for i in range(len(drivers)):
+    d = drivers[i]
+    threads.append(BridgeThread(d, drivers, "d%u" % i))
 
 last_print = time.time()
 
-last_d1 = 0
-last_d2 = 0
+last_c = [0]*len(drivers)
 
 while True:
     time.sleep(1)
     now = time.time()
     dt = now - last_print
-    c1 = t1.count
-    c2 = t2.count
-    print("%.3f/%.3f pkts/sec" % ((c1-last_d1)/dt, (c2-last_d2)/dt))
+    c = [ t.count for t in threads ]
+    rates = []
+    for i in range(len(drivers)):
+        dcount = c[i] - last_c[i]
+        rates.append("%.3f" % (dcount/dt))
+    print("%s pkts/sec" % '/'.join(rates))
     last_print = now
-    last_d1 = c1
-    last_d2 = c2
+    last_c = c[:]
