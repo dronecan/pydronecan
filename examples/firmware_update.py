@@ -18,7 +18,7 @@ parser = ArgumentParser(description='dump all DroneCAN messages')
 parser.add_argument("--bitrate", default=1000000, type=int, help="CAN bit rate")
 parser.add_argument("--node-id", default=100, type=int, help="CAN node ID")
 parser.add_argument("--target-node-id", default=-1, type=int, help="Target CAN node ID (-1 for auto)")
-parser.add_argument("--dna", action='store_true', default=True, help="run dynamic node allocation server")
+parser.add_argument("--dna", action='store_true', default=False, help="run dynamic node allocation server")
 parser.add_argument("--port", default='/dev/ttyACM0', type=str, help="serial port")
 parser.add_argument("--fw", default='', required=True, type=str, help="app firmware path")
 
@@ -70,20 +70,24 @@ file_server = dronecan.app.file_server.FileServer(node,
 
 update_started = False
 update_complete = False
+start_time = None
 
 def on_node_status(e):
     global update_started
     global update_complete
+    global start_time
 
     if e.transfer.source_node_id == target_node_id:
         if e.message.mode == e.message.MODE_SOFTWARE_UPDATE:
             if not update_started:
                 print('Performing update')
                 update_started = True;
+                start_time = time.time()
                 #request_update()
         else:
             if update_started:
-                print('Update complete')
+                elapsed = time.time() - start_time
+                print('Update complete in %.2f seconds' % elapsed)
                 update_complete = True;
 
 
@@ -118,3 +122,5 @@ while not update_started or not update_complete:
         sys.exit(0)
     except dronecan.transport.TransferError:
         pass
+
+node.close()
