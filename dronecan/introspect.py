@@ -40,7 +40,7 @@ def _to_json_compatible_object_impl(obj):
         t = dronecan.get_dronecan_data_type(obj)
         if t.value_type.category == t.value_type.CATEGORY_PRIMITIVE:
             def is_nice_character(ch):
-                if ch.is_printable() or ch.isspace():
+                if  32 <= ch <= 126:
                     return True
                 if ch in b'\n\r\t':
                     return True
