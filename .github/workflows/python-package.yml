@@ -43,7 +43,7 @@ jobs:
 
     - name: Install pydronecan
       run: |
-        python setup.py build install
+        python -m pip install .
 
     - name: Run Tests from local
       run: |
