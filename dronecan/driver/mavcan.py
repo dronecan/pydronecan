@@ -34,7 +34,7 @@ class ControlMessage(object):
         self.command = command
         self.data = data
 
-def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue):
+def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue, parent_pid):
     os.environ['MAVLINK20'] = '1'
 
     target_component = 0
@@ -121,6 +121,10 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
         if (not exit_queue.empty() and exit_queue.get() == "QUIT") or exit_proc:
             conn.close()
             return
+        if os.getppid() != parent_pid:
+            # ensure we die when parent dies
+            conn.close()
+            return
         while not tx_queue.empty():
             if (not exit_queue.empty() and exit_queue.get() == "QUIT") or exit_proc:
                 conn.close()
@@ -200,7 +204,7 @@ class MAVCAN(AbstractDriver):
 
         self.proc = multiprocessing.Process(target=io_process, name='mavcan_io_process',
                                             args=(url, self.bus, self.target_system, baudrate,
-                                            self.tx_queue, self.rx_queue, self.exit_queue))
+                                            self.tx_queue, self.rx_queue, self.exit_queue, os.getpid()))
         self.proc.daemon = True
         self.proc.start()
 
