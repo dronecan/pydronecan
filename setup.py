@@ -24,34 +24,12 @@ try:
     if not os.path.exists('dronecan/dsdl_specs'):
         os.symlink('../../DSDL', 'dronecan/dsdl_specs')
     args = dict(
-        name='dronecan',
         version=__version__,
-        description='Python implementation of the DroneCAN protocol stack',
-        long_description = long_description,
-        long_description_content_type = "text/markdown",
-        packages=[
-            'dronecan',
-            'dronecan.dsdl',
-            'dronecan.driver',
-            'dronecan.app',
-        ],
         package_data={
             'dronecan': [os.path.join(root[len('dronecan/'):], fname)
                     for root, dirs, files in os.walk('dronecan/dsdl_specs', followlinks=True)
                     for fname in files if fname.endswith('.uavcan')]
         },
-        author='Pavel Kirienko, Ben Dyer',
-        author_email='uavcan@googlegroups.com',
-        url='https://dronecan.github.io',
-        license='MIT',
-        classifiers=[
-            'Development Status :: 3 - Alpha',
-            'Intended Audience :: Developers',
-            'Topic :: Software Development :: Libraries',
-            'License :: OSI Approved :: MIT License',
-            'Programming Language :: Python',
-        ],
-        keywords='',
         scripts = [ 'tools/dronecan_bridge.py' ]
     )
     # ensure dsdl specs are not empty
