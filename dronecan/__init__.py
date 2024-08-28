@@ -158,12 +158,10 @@ def load_dsdl(*paths, **args):
     for dtype in dtypes:
         namespace, _, typename = dtype.full_name.rpartition(".")
         root_namespace._path(namespace).__dict__[typename] = dtype
-        if dtype.full_name not in TYPENAMES:
-            TYPENAMES[dtype.full_name] = dtype
+        TYPENAMES[dtype.full_name] = dtype
 
         if dtype.default_dtid:
-            if (dtype.default_dtid, dtype.kind) not in DATATYPES:
-                DATATYPES[(dtype.default_dtid, dtype.kind)] = dtype
+            DATATYPES[(dtype.default_dtid, dtype.kind)] = dtype
             # Add the base CRC to each data type capable of being transmitted
             dtype.base_crc = dsdl.crc16_from_bytes(struct.pack("<Q", dtype.get_data_type_signature()))
             logger.debug("DSDL Load {: >30} DTID: {: >4} base_crc:{: >8}"
