@@ -47,9 +47,6 @@ def publish_BatteryInfoAux():
 # Initializing a DroneCAN node instance.
 node = dronecan.make_node(args.uri, node_id=args.node_id, bitrate=1000000)
 
-# Initializing a node monitor, so we can see what nodes are online
-node_monitor = dronecan.app.node_monitor.NodeMonitor(node)
-
 # setup to publish battery info
 if args.balance:
     node.periodic(1.0/args.rate, publish_BatteryInfoAux)
