@@ -29,6 +29,7 @@ class NodeMonitor(object):
             self.info = None
             self.monotonic_timestamp = None
             self._remaining_retries = NodeMonitor.MAX_RETRIES
+            self._info_requested_at = 0
 
         @property
         def discovered(self):
@@ -166,7 +167,6 @@ class NodeMonitor(object):
             new_entry = False
         except KeyError:
             entry = self.Entry()
-            entry._info_requested_at = 0
             self._registry[node_id] = entry
             new_entry = True
 
@@ -175,14 +175,14 @@ class NodeMonitor(object):
         if new_entry:
             self._call_event_handlers(self.UpdateEvent(entry, self.UpdateEvent.EVENT_ID_NEW))
 
-        should_retry_now = entry.monotonic_timestamp - entry._info_requested_at > self.MIN_RETRY_INTERVAL
-
-        if not entry.discovered and should_retry_now and not e.node.is_anonymous:
-            entry._info_requested_at = entry.monotonic_timestamp
-            # noinspection PyProtectedMember
-            entry._register_retry()
-            e.node.request(uavcan.protocol.GetNodeInfo.Request(), node_id,  # @UndefinedVariable
-                           priority=self.TRANSFER_PRIORITY, callback=self._on_info_response)
+        if not entry.discovered and not e.node.is_anonymous:
+            should_retry_now = entry.monotonic_timestamp - entry._info_requested_at > self.MIN_RETRY_INTERVAL
+            if should_retry_now:
+                entry._info_requested_at = entry.monotonic_timestamp
+                # noinspection PyProtectedMember
+                entry._register_retry()
+                e.node.request(uavcan.protocol.GetNodeInfo.Request(), node_id,  # @UndefinedVariable
+                               priority=self.TRANSFER_PRIORITY, callback=self._on_info_response)
 
     def _on_info_response(self, e):
         if not e:
@@ -190,8 +190,6 @@ class NodeMonitor(object):
 
         try:
             entry = self.get(e.transfer.source_node_id)
-            if entry._info_requested_at is None:
-                entry._info_requested_at = entry.monotonic_timestamp
         except KeyError:
             entry = self.Entry()
             self._registry[e.transfer.source_node_id] = entry
