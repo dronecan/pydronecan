@@ -52,8 +52,9 @@ class CentralizedServer(object):
             if unique_id is not None:
                 unique_id = sqlite3.Binary(unique_id)
             logger.debug('[CentralizedServer] AllocationTable update: %d %s', node_id, _unique_id_to_string(unique_id))
-            self._modify('''insert or replace into allocation (node_id, unique_id) values (?, ?);''',
-                         node_id, unique_id)
+            if unique_id:
+                self._modify('''insert or replace into allocation (node_id, unique_id) values (?, ?);''',
+                            node_id, unique_id)
 
         def get_node_id(self, unique_id):
             assert isinstance(unique_id, bytes)
