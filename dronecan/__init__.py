@@ -16,7 +16,15 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 import os
 import sys
 import struct
-import pkg_resources
+try:
+    # pkg_resources is depreciated in favor of importlib.resources.*
+    # https://setuptools.pypa.io/en/latest/pkg_resources.html
+    from importlib.resources import files as importlib_files
+    USE_FALLBACK_PGK_RES = False
+except ImportError:
+    # Only necessary in Python versions < 3.7
+    USE_FALLBACK_PGK_RES = True
+    import pkg_resources
 import time
 from logging import getLogger
 
@@ -124,7 +132,10 @@ def load_dsdl(*paths, **args):
     # noinspection PyBroadException
     try:
         if not args.get("exclude_dist", None):
-            dsdl_path = pkg_resources.resource_filename(__name__, "dsdl_specs")  # @UndefinedVariable
+            if USE_FALLBACK_PGK_RES:
+                dsdl_path = pkg_resources.resource_filename(__name__, "dsdl_specs")  # @UndefinedVariable
+            else:
+                dsdl_path = importlib_files(__package__).joinpath("dsdl_specs")
             # check if we are a package, if not directly use relative DSDL path
             if not os.path.exists(dsdl_path):
                 DSDL_paths = [ "../../DSDL", "../../../../../DroneCAN/DSDL", "../../../../dsdl"]
@@ -194,7 +205,7 @@ def load_dsdl(*paths, **args):
         if str(ext_namespace) != "uavcan":
             # noinspection PyUnresolvedReferences
             MODULE.thirdparty.__dict__[str(ext_namespace)] = root_namespace.__dict__[ext_namespace]
-            
+
 __all__ = ["dsdl", "transport", "load_dsdl", "DATATYPES", "TYPENAMES"]
 
 
