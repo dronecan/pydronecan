@@ -29,8 +29,7 @@ class CentralizedServer(object):
 
     class AllocationTable(object):
         def __init__(self, path):
-            # Disabling same thread check on the assumption that the developer knows what they are doing.
-            self.db = sqlite3.connect(path, check_same_thread=False)  # @UndefinedVariable
+            self.db = sqlite3.connect(path)  # @UndefinedVariable
 
             self._modify('''CREATE TABLE IF NOT EXISTS `allocation` (
             `node_id`   INTEGER NOT NULL UNIQUE,
@@ -117,8 +116,16 @@ class CentralizedServer(object):
         return self._allocation_table.get_entries()
 
     def _handle_monitor_event(self, event):
+        if event.event_id not in (event.EVENT_ID_NEW, event.EVENT_ID_INFO_UPDATE):
+            return # don't care about nodes going offline or other such things
+        # unique ID might not be available if we see a node not participating in
+        # DNA and haven't got it or it didn't share that
         unique_id = event.entry.info.hardware_version.unique_id.to_bytes() if event.entry.info else None
-        self._allocation_table.set(unique_id, event.entry.node_id)
+        # set unique ID for this node ID (possibly to None in case we never get
+        # one) if we don't have one yet (though maybe we should raise a
+        # conflict if we do)
+        if self._allocation_table.get_unique_id(event.entry.node_id) is None:
+            self._allocation_table.set(unique_id, event.entry.node_id)
 
     def close(self):
         """Stops the instance and closes the allocation table storage.

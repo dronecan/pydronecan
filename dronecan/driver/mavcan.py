@@ -34,7 +34,7 @@ class ControlMessage(object):
         self.command = command
         self.data = data
 
-def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue):
+def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue, parent_pid):
     os.environ['MAVLINK20'] = '1'
 
     target_component = 0
@@ -44,8 +44,10 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
     signing_key = None
     last_loss_print_t = time.time()
     exit_proc = False
+    readonly = False
+
     def connect():
-        nonlocal conn, baudrate
+        nonlocal conn, baudrate, readonly
         conn = mavutil.mavlink_connection(url, baud=baudrate, source_system=250,
                                           source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN,
                                           dialect='ardupilotmega')
@@ -54,6 +56,8 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
         nonlocal signing_key
         if signing_key is not None:
             conn.setup_signing(signing_key, sign_outgoing=True)
+
+        readonly = isinstance(conn, mavutil.mavlogfile)
 
     def reconnect():
         nonlocal exit_proc
@@ -71,6 +75,8 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
 
     def enable_can_forward():
         '''re-enable CAN forwarding. Called at 1Hz'''
+        if readonly:
+            return
         nonlocal last_enable, bus, target_system
         last_enable = time.time()
         conn.mav.command_long_send(
@@ -121,11 +127,17 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
         if (not exit_queue.empty() and exit_queue.get() == "QUIT") or exit_proc:
             conn.close()
             return
+        if os.getppid() != parent_pid:
+            # ensure we die when parent dies
+            conn.close()
+            return
         while not tx_queue.empty():
             if (not exit_queue.empty() and exit_queue.get() == "QUIT") or exit_proc:
                 conn.close()
                 return
             frame = tx_queue.get()
+            if readonly:
+                continue
             if isinstance(frame, ControlMessage):
                 handle_control_message(frame)
                 continue
@@ -200,7 +212,7 @@ class MAVCAN(AbstractDriver):
 
         self.proc = multiprocessing.Process(target=io_process, name='mavcan_io_process',
                                             args=(url, self.bus, self.target_system, baudrate,
-                                            self.tx_queue, self.rx_queue, self.exit_queue))
+                                            self.tx_queue, self.rx_queue, self.exit_queue, os.getpid()))
         self.proc.daemon = True
         self.proc.start()
 
