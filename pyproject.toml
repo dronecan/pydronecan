@@ -22,6 +22,11 @@ classifiers = [
     'Programming Language :: Python',
 ]
 
+dependencies = [
+    "empy==3.3.4",
+    "pexpect",
+]
+
 [project.urls]
 Homepage = "https://github.com/DroneCAN/pydronecan"
 Issues = "https://github.com/DroneCAN/pydronecan/issues"
