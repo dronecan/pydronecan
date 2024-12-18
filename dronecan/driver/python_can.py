@@ -136,8 +136,6 @@ else:
         def receive(self, timeout=None):
             self._check_write_feedback()
 
-            timeout = -1 if timeout is None else (timeout * 1000)
-
             try:
                 msg = self._bus.recv(timeout=timeout)
                 if msg is not None:
