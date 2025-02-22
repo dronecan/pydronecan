@@ -99,8 +99,10 @@ else:
                                     data=list(frame.data),
                                 )
                             self._bus.send(msg)
-                            self._bus.flush_tx_buffer()
-
+                            try:
+                                self._bus.flush_tx_buffer()
+                            except NotImplementedError:
+                                pass
                             frame.ts_monotonic = time.monotonic()
                             frame.ts_real = time.time()
                             self._write_feedback_queue.put(frame)
