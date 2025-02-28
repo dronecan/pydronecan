@@ -13,6 +13,7 @@ from .python_can import PythonCAN
 from .slcan import SLCAN
 from .mcast import mcast
 from .file import file
+from .sercan import sercan
 try:
     from .mavcan import MAVCAN
     have_mavcan = True
@@ -34,6 +35,11 @@ def is_mavlink_port(device_name, **kwargs):
     baudrate = kwargs.get('baudrate', 115200)
     return MAVCAN.is_mavlink_port(device_name, baudrate)
 
+def is_sercan_port(device_name, **kwargs):
+    '''check if a port is a SerialCAN port'''
+    baudrate = kwargs.get('baudrate', 115200)
+    return sercan.is_sercan_port(device_name, baudrate)
+
 def make_driver(device_name, **kwargs):
     """Creates an instance of CAN driver.
     The right driver class will be selected automatically based on the device_name.
@@ -54,6 +60,8 @@ def make_driver(device_name, **kwargs):
         return SLCAN(device_name[6:], **kwargs)
     elif device_name.startswith("mcast:"):
         return mcast(device_name[6:], **kwargs)
+    elif device_name.startswith("sercan:"):
+        return sercan(device_name[7:], **kwargs)
     elif device_name.startswith("filein:"):
         kwargs['readonly'] = True
         return file(device_name[7:], **kwargs)
@@ -63,6 +71,8 @@ def make_driver(device_name, **kwargs):
     elif windows_com_port or unix_tty:
         if is_mavlink_port(device_name, **kwargs):
             return MAVCAN(device_name, **kwargs)
+        elif is_sercan_port(device_name, **kwargs):
+            return sercan(device_name, **kwargs)
         else:
             return SLCAN(device_name, **kwargs)
     elif PythonCAN is not None:
