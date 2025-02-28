@@ -16,9 +16,34 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 import os
 import sys
 import struct
-import pkg_resources
 import time
 from logging import getLogger
+
+# Remove deprecated pkg_resources
+try:
+    # Use importlib.resources if available (Python 3.7+)
+    try:
+        from importlib import resources as importlib_resources
+    except ImportError:
+        # Fall back to importlib_resources backport for Python < 3.7
+        import importlib_resources
+    
+    def get_resource_path(package, resource):
+        """Get path to a resource file using importlib.resources"""
+        try:
+            # Python 3.9+
+            return importlib_resources.files(package).joinpath(resource)
+        except AttributeError:
+            # Python 3.7, 3.8 with importlib_resources backport
+            with importlib_resources.path(package, resource) as path:
+                return path
+except ImportError:
+    # Last resort fallback to pkg_resources
+    import pkg_resources
+    
+    def get_resource_path(package, resource):
+        """Get path to a resource file using pkg_resources"""
+        return pkg_resources.resource_filename(package, resource)
 
 try:
     # noinspection PyStatementEffect
@@ -124,15 +149,19 @@ def load_dsdl(*paths, **args):
     # noinspection PyBroadException
     try:
         if not args.get("exclude_dist", None):
-            dsdl_path = pkg_resources.resource_filename(__name__, "dsdl_specs")  # @UndefinedVariable
-            # check if we are a package, if not directly use relative DSDL path
-            if not os.path.exists(dsdl_path):
+            try:
+                dsdl_path = str(get_resource_path(__name__, "dsdl_specs"))
+            except (ImportError, FileNotFoundError):
+                dsdl_path = None
+                
+            # Check if we are a package, if not directly use relative DSDL path
+            if not dsdl_path or not os.path.exists(dsdl_path):
                 DSDL_paths = [ "../../DSDL", "../../../../../DroneCAN/DSDL", "../../../../dsdl"]
                 for p in DSDL_paths:
                     dpath = os.path.join(os.path.dirname(__file__), p)
                     if os.path.exists(dpath):
                         dsdl_path = dpath
-                        logger.debug('Found DSDL at: '.format(dsdl_path))
+                        logger.debug('Found DSDL at: {}'.format(dsdl_path))
                         break
             if not os.path.exists(dsdl_path):
                 raise UAVCANException('failed to find DSDL path')
