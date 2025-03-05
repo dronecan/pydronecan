@@ -866,6 +866,12 @@ def parse_namespaces(source_dirs, search_dirs=None):
             value = all_default_dtid[key]
             first = pretty_filename(value[0])
             second = pretty_filename(filename)
+
+            # Allow overrides for vendor specific data types in the range [20000, 21000)
+            if 20000 <= t.default_dtid < 21000:
+                logger.warning('Overriding previously defined data type: [%s] [%s]', first, second)
+                return
+
             if t.get_dsdl_signature() != value[1].get_dsdl_signature():
                 error('Redefinition of data type ID: [%s] [%s]', first, second)
             else:
