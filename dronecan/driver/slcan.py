@@ -103,7 +103,9 @@ class RetrySerial(object):
         try:
             self.conn = serial.Serial(self.device, self.baudrate)
             self.conn.timeout = self.timeout
-            _init_adapter(self.conn, self.bitrate, self.supports_ack_nack)
+            # Use stored supports_ack_nack value if available
+            supports_ack_nack = getattr(self, 'supports_ack_nack', None)
+            self.supports_ack_nack = _init_adapter(self.conn, self.bitrate, supports_ack_nack)
             logger.info("Reopen OK")
         except Exception as ex:
             logger.info("Reopen failed", ex)
@@ -315,6 +317,9 @@ class RxWorker:
 
         if line_len < 1:
             return
+            
+        # Only log problematic lines for debugging
+        # logger.debug('SLCAN line: %r (len=%d)', line, line_len)
 
         canfd = False
         # Checking the header, ignore all irrelevant lines
@@ -356,6 +361,17 @@ class RxWorker:
             ts_real = local_ts_real
 
         frame = CANFrame(packet_id, packet_data, (id_len == 8), ts_monotonic=ts_mono, ts_real=ts_real, canfd=canfd)
+        
+        # Optional detailed frame logging (uncomment for debugging)
+        # if packet_data:
+        #     tail_byte = packet_data[-1] if packet_data else 0
+        #     start_bit = bool(tail_byte & 0x80)
+        #     end_bit = bool(tail_byte & 0x40)
+        #     toggle_bit = bool(tail_byte & 0x20)
+        #     transfer_id = tail_byte & 0x1F
+        #     logger.debug('SLCAN RX: ID=%08X, len=%d, tail=%02X, start=%s, end=%s, toggle=%s, tid=%d', 
+        #                 packet_id, len(packet_data), tail_byte, start_bit, end_bit, toggle_bit, transfer_id)
+        
         self._output_queue.put_nowait(frame)
 
     def _process_many_slcan_lines(self, lines, ts_mono, ts_real):
@@ -492,11 +508,12 @@ class RxWorker:
 class TxWorker:
     QUEUE_BLOCK_TIMEOUT = 0.1
 
-    def __init__(self, conn, rx_queue, tx_queue, termination_condition):
+    def __init__(self, conn, rx_queue, tx_queue, termination_condition, supports_ack_nack=True):
         self._conn = conn
         self._rx_queue = rx_queue
         self._tx_queue = tx_queue
         self._termination_condition = termination_condition
+        self._supports_ack_nack = supports_ack_nack
 
     def _send_frame(self, frame):
         marker = 'D' if frame.canfd else 'T'
@@ -505,6 +522,7 @@ class TxWorker:
                              dlc_len,
                              binascii.b2a_hex(frame.data).decode('ascii'))
 
+        # Rely on natural backpressure from serial connection
         self._conn.write(line.encode('ascii'))
         self._conn.flush()
 
@@ -596,10 +614,9 @@ def _init_adapter(conn, bitrate, supports_ack_nack=None):
         # Store the result if this is a RetrySerial instance
         if hasattr(conn, 'supports_ack_nack'):
             conn.supports_ack_nack = supports_ack_nack
-    
     def wait_for_ack():
         if not supports_ack_nack:
-            logger.info('Init: Adapter does not support ACK/NACK, skipping wait')
+            # Adapter doesn't support ACK/NACK, skip wait and rely on natural backpressure
             return
         logger.info('Init: Waiting for ACK...')
         conn.timeout = ACK_TIMEOUT
@@ -616,6 +633,7 @@ def _init_adapter(conn, bitrate, supports_ack_nack=None):
     def send_command(cmd):
         logger.info('Init: Sending command %r', cmd)
         conn.write(cmd + b'\r')
+        conn.flush()
 
     speed_code = {
         1000000: 8,
@@ -637,7 +655,9 @@ def _init_adapter(conn, bitrate, supports_ack_nack=None):
             try:
                 wait_for_ack()
             except DriverError:
-                pass
+                if supports_ack_nack:
+                    # Only log error if we expect ACK/NACK support
+                    logger.warning('Init: Failed to get ACK for empty command')
             time.sleep(0.1)
             conn.flushInput()
 
@@ -708,6 +728,12 @@ def _io_process(device,
         getLogger().setLevel('INFO')
 
     logger.info('IO process started with PID %r', os.getpid())
+    
+    # Enable debug logging if requested via environment variable
+    if os.environ.get('DRONECAN_DEBUG'):
+        import logging
+        logging.getLogger('dronecan.driver.slcan').setLevel(logging.DEBUG)
+        logger.info('SLCAN debug logging enabled via DRONECAN_DEBUG environment variable')
 
     # We don't need stdin
     try:
@@ -793,7 +819,8 @@ def _io_process(device,
                              tx_queue=tx_queue,
                              termination_condition=lambda: (should_exit or
                                                             not rxthd.is_alive() or
-                                                            not is_parent_process_alive()))
+                                                            not is_parent_process_alive()),
+                             supports_ack_nack=supports_ack_nack)
         tx_worker.run()
     except Exception as ex:
         logger.error('IO process failed', exc_info=True)
