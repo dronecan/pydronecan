@@ -113,6 +113,7 @@ class Scheduler(object):
                 callback_running[0] = False
 
         first_deadline = self._scheduler.timefunc() + period_seconds
+        callback_running = [False]
         event_holder = [self._scheduler.enterabs(first_deadline, priority, caller, (first_deadline,))]
         return self._make_sched_handle(lambda: event_holder[0])
 
