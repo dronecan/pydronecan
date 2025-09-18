@@ -81,7 +81,7 @@ class CentralizedServer(object):
             c.execute('''select unique_id, node_id from allocation order by ts desc''')
             return list(c.fetchall())
 
-    def __init__(self, node, node_monitor, database_storage=None, dynamic_node_id_range=None):
+    def __init__(self, node, node_monitor, database_storage=None, dynamic_node_id_range=None, new_found_node_callback=None, node_disconnected_callback=None):
         """
         :param node: Node instance.
 
@@ -91,11 +91,17 @@ class CentralizedServer(object):
                                  If not provided, the allocation table will be kept in memory.
 
         :param dynamic_node_id_range: Range of node ID available for dynamic allocation; defaults to [1, 125].
+
+        :param new_found_node_callback: Optional callback to be called when a new node is found. It is called before the node is assigned with an ID
+
+        :param node_disconnected_callback: Optional callback to be called when a node is disconnected. This is a node that had an ID assigned by the allocator and then disappeared from the bus.
         """
         if node.is_anonymous:
             raise UAVCANException('Dynamic node ID server cannot be launched on an anonymous node')
 
         self._node_monitor = node_monitor
+        self._new_found_node_callback = new_found_node_callback
+        self._node_disconnected_callback = node_disconnected_callback
 
         self._allocation_table = CentralizedServer.AllocationTable(database_storage or self.DATABASE_STORAGE_MEMORY)
         self._query = bytes()
@@ -119,6 +125,11 @@ class CentralizedServer(object):
     def _handle_monitor_event(self, event):
         unique_id = event.entry.info.hardware_version.unique_id.to_bytes() if event.entry.info else None
         self._allocation_table.set(unique_id, event.entry.node_id)
+
+        if event.event_id == event.EVENT_ID_OFFLINE:
+            if self._allocation_table.is_known_node_id(event.entry.node_id):
+                if self._node_disconnected_callback:
+                    self._node_disconnected_callback(_unique_id_to_string(unique_id), event.entry.node_id)
 
     def close(self):
         """Stops the instance and closes the allocation table storage.
@@ -201,6 +212,10 @@ class CentralizedServer(object):
                         break
 
             if node_allocated_id:
+                # Call the callback if a new node is found
+                if self._new_found_node_callback:
+                    self._new_found_node_callback(_unique_id_to_string(self._query), node_allocated_id)
+
                 self._allocation_table.set(self._query, node_allocated_id)
 
                 response = uavcan.protocol.dynamic_node_id.Allocation()  # @UndefinedVariable

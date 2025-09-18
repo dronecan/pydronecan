@@ -194,7 +194,7 @@ def load_dsdl(*paths, **args):
         if str(ext_namespace) != "uavcan":
             # noinspection PyUnresolvedReferences
             MODULE.thirdparty.__dict__[str(ext_namespace)] = root_namespace.__dict__[ext_namespace]
-            
+
 __all__ = ["dsdl", "transport", "load_dsdl", "DATATYPES", "TYPENAMES"]
 
 
@@ -208,7 +208,33 @@ sys.modules[MODULE.__name__] = MODULE
 
 
 # Completing package initialization with loading default DSDL definitions
-load_dsdl()
+custom_dsdl_env = os.environ.get('DroneCAN_CUSTOM_DSDL_PATH')
+if custom_dsdl_env and os.path.exists(custom_dsdl_env):
+    try:
+        logger.info(f"Loading custom DSDL from environment variable: {custom_dsdl_env}")
+        load_dsdl(custom_dsdl_env)
+        logger.info("Custom DSDL loaded successfully from environment variable.")
+    except Exception as ex:
+        logger.warning(f"Failed to load custom DSDL from {custom_dsdl_env}: {ex}")
+        # fallback to default logic below
+
+else:
+    # Use the same default path logic as main.py
+    default_dsdl_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    default_dsdl_path = os.path.join(default_dsdl_root, "..", "public_regulated_data_types")
+    if os.path.exists(default_dsdl_path):
+        logger.info(f"Loading default DSDL from {default_dsdl_path}")
+        namespace_dirs = [
+            os.path.join(default_dsdl_path, "uavcan"),
+            os.path.join(default_dsdl_path, "dronecan"),
+            os.path.join(default_dsdl_path, "ardupilot"),
+            os.path.join(default_dsdl_path, "com"),
+            os.path.join(default_dsdl_path, "cuav"),
+        ]
+        load_dsdl(*namespace_dirs)
+    else:
+        logger.warning(f"Default DSDL path not found: {default_dsdl_path}, falling back to package logic.")
+        load_dsdl()
 
 
 # Importing modules that may be dependent on the standard DSDL types
