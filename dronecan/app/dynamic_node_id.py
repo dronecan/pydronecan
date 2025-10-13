@@ -212,9 +212,6 @@ class CentralizedServer(object):
                         break
 
             if node_allocated_id:
-                # Call the callback if a new node is found
-                if self._new_found_node_callback:
-                    self._new_found_node_callback(_unique_id_to_string(self._query), node_allocated_id)
 
                 self._allocation_table.set(self._query, node_allocated_id)
 
@@ -227,6 +224,9 @@ class CentralizedServer(object):
                 logger.info("[CentralizedServer] Allocated node ID %d to node with unique ID %s",
                             node_allocated_id, _unique_id_to_string(self._query))
 
+                # Call the callback if a new node is found
+                if self._new_found_node_callback:
+                    self._new_found_node_callback(_unique_id_to_string(self._query), node_allocated_id)
                 self._query = bytes()   # Resetting the state
             else:
                 logger.error("[CentralizedServer] Couldn't allocate dynamic node ID")
