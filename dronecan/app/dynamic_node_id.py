@@ -55,6 +55,23 @@ class CentralizedServer(object):
             self._modify('''insert or replace into allocation (node_id, unique_id) values (?, ?);''',
                          node_id, unique_id)
 
+        def remove_oldest_node_id(self):
+            """
+            @brief   Finds and removes the entry with the oldest timestamp (ts) from the allocation table.
+            @return  The node ID of the removed entry, or None if the table is empty.
+            """
+
+            c = self.db.cursor()
+            c.execute('SELECT node_id FROM allocation ORDER BY ts ASC LIMIT 1')
+            res = c.fetchone()
+            if res:
+                oldest_node_id = res[0]
+                c.execute('DELETE FROM allocation WHERE node_id = ?', (oldest_node_id,))
+                self.db.commit()
+                return oldest_node_id
+
+            return None
+
         def get_node_id(self, unique_id):
             assert isinstance(unique_id, bytes)
             c = self.db.cursor()
@@ -138,6 +155,17 @@ class CentralizedServer(object):
         self._node_monitor_event_handle.remove()
         self._allocation_table.close()
 
+    def _allocate_new_node_id(self):
+        """
+        @brief   Allocates a new node ID from the dynamic node ID range.
+        @return  The allocated node ID, or None if no IDs are available.
+        """
+        for node_id in range(self._dynamic_node_id_range[1], self._dynamic_node_id_range[0], -1):
+            if not self._allocation_table.is_known_node_id(node_id):
+                return node_id
+
+        return None
+
     def _on_allocation_message(self, e):
         # TODO: request validation
 
@@ -206,13 +234,18 @@ class CentralizedServer(object):
             # If no ID was allocated in the above step (also if the requested
             # ID was zero), allocate the highest unallocated node ID
             if not node_allocated_id:
-                for node_id in range(self._dynamic_node_id_range[1], self._dynamic_node_id_range[0], -1):
-                    if not self._allocation_table.is_known_node_id(node_id):
-                        node_allocated_id = node_id
-                        break
+                node_allocated_id = self._allocate_new_node_id()
+
+            if not node_allocated_id:
+                logger.error("[CentralizedServer] Couldn't allocate dynamic node ID")
+                # As per spec, remove the oldest entry and try again
+                removed_node_id = self._allocation_table.remove_oldest_node_id()
+                if removed_node_id:
+                    logger.info("[CentralizedServer] Removed oldest node ID %d to free up space", removed_node_id)
+                    node_allocated_id = self._allocate_new_node_id()
+
 
             if node_allocated_id:
-
                 self._allocation_table.set(self._query, node_allocated_id)
 
                 response = uavcan.protocol.dynamic_node_id.Allocation()  # @UndefinedVariable
