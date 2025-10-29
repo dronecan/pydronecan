@@ -16,24 +16,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python 3.7 from deadsnakes
-      if: matrix.python-version == '3.7'
-      run: |
-        sudo add-apt-repository ppa:deadsnakes/ppa
-        sudo apt-get update
-        sudo apt-get install -y python3.7 python3.7-dev python3.7-distutils
-        python3.7 -m venv py37_env --without-pip
-        source py37_env/bin/activate
-        curl -sS https://bootstrap.pypa.io/pip/3.7/get-pip.py | python
-        echo "PATH=$PWD/py37_env/bin:$PATH" >> $GITHUB_ENV
-
     - name: Set up Python ${{ matrix.python-version }}
-      if: matrix.python-version != '3.7'
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
