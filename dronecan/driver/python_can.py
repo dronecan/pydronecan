@@ -99,8 +99,10 @@ else:
                                     data=list(frame.data),
                                 )
                             self._bus.send(msg)
-                            self._bus.flush_tx_buffer()
-
+                            try:
+                                self._bus.flush_tx_buffer()
+                            except NotImplementedError:
+                                pass
                             frame.ts_monotonic = time.monotonic()
                             frame.ts_real = time.time()
                             self._write_feedback_queue.put(frame)
@@ -135,8 +137,6 @@ else:
 
         def receive(self, timeout=None):
             self._check_write_feedback()
-
-            timeout = -1 if timeout is None else (timeout * 1000)
 
             try:
                 msg = self._bus.recv(timeout=timeout)
