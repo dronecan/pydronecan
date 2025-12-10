@@ -53,6 +53,7 @@ class CANFrame:
         return "%12.6f %12.6f  %s  %s  '%s'" % \
                (self.ts_monotonic, self.ts_real, id_str, hex_data, ascii_data)
 
+    @staticmethod
     def dlc_to_datalength(dlc):
         # Data Length Code      9  10  11  12  13  14  15
         # Number of data bytes 12  16  20  24  32  48  64
@@ -72,6 +73,7 @@ class CANFrame:
             return 48
         return 64
 
+    @staticmethod
     def datalength_to_dlc(data_length):
         if (data_length <= 8):
             return data_length
@@ -134,10 +136,10 @@ class AbstractDriver(object):
         '''set list of message IDs to accept, sent to the remote capture node with mavcan'''
         pass
 
-    def get_filter_list(self, ids):
-        '''get list of message IDs to accept, None means accept all'''
+    def get_filter_list(self):
+        '''get the current filter list'''
         return None
-    
+
     def set_bus(self, busnum):
         '''set the remote bus number to attach to'''
         pass
@@ -145,14 +147,6 @@ class AbstractDriver(object):
     def get_bus(self):
         '''get the remote bus number we are attached to'''
         return None
-
-    def get_filter_list(self):
-        '''get the current filter list'''
-        return None
-    
-    def set_bus(self, busnum):
-        '''set the remote bus number to attach to'''
-        pass
 
     def set_signing_passphrase(self, passphrase):
         '''set MAVLink2 signing passphrase'''

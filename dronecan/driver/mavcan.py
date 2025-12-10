@@ -248,6 +248,7 @@ class MAVCAN(AbstractDriver):
         self._tx_hook(frame)
         self.tx_queue.put_nowait(frame)
 
+    @staticmethod
     def is_mavlink_port(device_name, baudrate):
         '''check if a device is sending mavlink'''
         os.environ['MAVLINK20'] = '1'
@@ -263,8 +264,8 @@ class MAVCAN(AbstractDriver):
         self.filter_list = ids
         self.tx_queue.put_nowait(ControlMessage('FilterList', self.filter_list))
 
-    def get_filter_list(self, ids):
-        '''set list of message IDs to accept, sent to the remote capture node with mavcan'''
+    def get_filter_list(self):
+        '''get list of message IDs to accept'''
         return self.filter_list
 
     def set_bus(self, busnum):
@@ -278,9 +279,6 @@ class MAVCAN(AbstractDriver):
         '''get the remote bus number we are attached to'''
         return self.bus+1
 
-    def get_filter_list(self):
-        '''get the current filter list'''
-        return self.filter_list
 
     def passphrase_to_key(self, passphrase):
         '''convert a passphrase to a 32 byte key'''
