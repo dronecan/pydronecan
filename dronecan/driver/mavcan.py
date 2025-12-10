@@ -119,6 +119,8 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
             nonlocal signing_key
             signing_key = m.data
             conn.setup_signing(signing_key, sign_outgoing=True)
+        elif m.command == "SetParam":
+            conn.param_set_send(m.data[0], m.data[1])
 
     connect()
     enable_can_forward()
@@ -281,6 +283,13 @@ class MAVCAN(AbstractDriver):
     def get_filter_list(self):
         '''get the current filter list'''
         return self.filter_list
+
+    def set_parameter(self, name, value):
+        '''set parameter in the remote air vehicle'''
+        if len(name) > 16:
+            raise DriverError('Parameter name %s too long' % name)
+
+        self.tx_queue.put_nowait(ControlMessage('SetParam', (name, value)))
 
     def passphrase_to_key(self, passphrase):
         '''convert a passphrase to a 32 byte key'''

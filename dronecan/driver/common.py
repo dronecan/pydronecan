@@ -158,6 +158,10 @@ class AbstractDriver(object):
         '''set MAVLink2 signing passphrase'''
         pass
 
+    def set_parameter(self, name, value):
+        '''set parameter on the remote device'''
+        pass
+
     def stream_progress(self):
         '''stream progress of the current stream'''
         pass
