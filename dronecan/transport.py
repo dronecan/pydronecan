@@ -368,6 +368,19 @@ class ArrayValue(BaseValue, MutableSequence):
         else:
             return self.__items[idx]
 
+    def __iter__(self):
+        # If __iter__ is not defined, Python falls back to index-based iteration
+        # (0, 1, 2, ...) and stops by catching IndexError. Some debuggers/UI tools
+        # treat that IndexError as an exception worth breaking on.
+        #
+        # Iterate over a snapshot to avoid IndexError if the underlying list is
+        # mutated while iterating.
+        for item in list(self.__items):
+            if isinstance(item, PrimitiveValue):
+                yield item.value if item._bits else 0
+            else:
+                yield item
+
     def __setitem__(self, idx, value):
         if idx >= self._type.max_size:
             raise IndexError("Index {0} too large (max size {1})".format(idx, self._type.max_size))
@@ -389,11 +402,9 @@ class ArrayValue(BaseValue, MutableSequence):
             return list(self) == other
 
     def clear(self):
-        try:
-            while True:
-                self.pop()
-        except IndexError:
-            pass
+        # Avoid relying on IndexError for loop termination (debuggers may break on it).
+        # This works for both static and dynamic arrays because __delitem__ supports slices.
+        del self[:]
 
     def new_item(self):
         return self.__item_ctor()
