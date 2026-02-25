@@ -37,15 +37,25 @@ class TestParseNamespaces(unittest.TestCase):
 
     def test_redefinition_in_search_dir(self):
         '''
-        Validate the parser does not allow redefinitions in the search dir
+        Validate that vendor-specific type IDs in [20000, 21000) are allowed to be
+        overridden in the search dir.
         '''
         ns0_dir = '{}/fake_dsdl/ns0_base/ns0'.format(os.path.dirname(__file__))
         ns0_dir_with_redefinition = '{}/fake_dsdl/ns0_redefined/ns0'.format(os.path.dirname(__file__))
-        try:
+
+        parse_namespaces([ns0_dir], [ns0_dir_with_redefinition])
+
+    def test_non_vendor_redefinition_in_search_dir(self):
+        '''
+        Validate the parser does not allow redefinitions with differing signatures for
+        non-vendor type IDs (outside the [20000, 21000) vendor-override range).
+        '''
+        ns0_dir = '{}/fake_dsdl/ns0_nonvendor_base/ns0'.format(os.path.dirname(__file__))
+        ns0_dir_with_redefinition = '{}/fake_dsdl/ns0_nonvendor_redefined/ns0'.format(os.path.dirname(__file__))
+
+        with self.assertRaises(DsdlException) as context:
             parse_namespaces([ns0_dir], [ns0_dir_with_redefinition])
-            self.assertTrue(False) # parse_namespaces should raise an exception, shouldn't get here
-        except DsdlException as e:
-            self.assertTrue(e.args[0].startswith("Redefinition of data type ID"))
+        self.assertTrue(context.exception.args[0].startswith("Redefinition of data type ID"))
 
 
 if __name__ == '__main__':
