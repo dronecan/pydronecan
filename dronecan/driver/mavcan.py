@@ -222,7 +222,7 @@ class MAVCAN(AbstractDriver):
             self.set_signing_passphrase(pass_phrase)
 
     def close(self):
-        if self.proc is not None:
+        if self.proc is not None and self.proc.is_alive():
             self.exit_queue.put_nowait("QUIT")
             self.proc.join()
 
