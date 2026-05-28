@@ -34,6 +34,7 @@ MCAST_MAX_PKT_LEN = 74 # 64 byte data + 10 byte header
 import os
 import sys
 import time
+import signal
 import multiprocessing
 import socket
 import struct
@@ -66,6 +67,10 @@ except Exception:
     pass
 
 def io_process(url, tx_queue, rx_queue):
+    # leave Ctrl-C (SIGINT) handling to the parent process; this daemon
+    # child is torn down when the parent exits
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     port = None
     port_out = None
     myport = None

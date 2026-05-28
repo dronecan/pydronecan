@@ -20,6 +20,7 @@ class BridgeThread(object):
         if self.filter_nodeid:
             print("Filtering Node IDs: %s" % self.filter_nodeid)
         self.thd = threading.Thread(target=self.loop, name=name)
+        self.thd.daemon = True
         self.thd.start()
 
     def loop(self):
@@ -76,18 +77,21 @@ def main():
 
     last_c = [0]*len(drivers)
 
-    while True:
-        time.sleep(1)
-        now = time.time()
-        dt = now - last_print
-        c = [ t.count for t in threads ]
-        rates = []
-        for i in range(len(drivers)):
-            dcount = c[i] - last_c[i]
-            rates.append("%.3f" % (dcount/dt))
-        print("%s pkts/sec" % '/'.join(rates))
-        last_print = now
-        last_c = c[:]
+    try:
+        while True:
+            time.sleep(1)
+            now = time.time()
+            dt = now - last_print
+            c = [ t.count for t in threads ]
+            rates = []
+            for i in range(len(drivers)):
+                dcount = c[i] - last_c[i]
+                rates.append("%.3f" % (dcount/dt))
+            print("%s pkts/sec" % '/'.join(rates))
+            last_print = now
+            last_c = c[:]
+    except KeyboardInterrupt:
+        print("\nClosing")
 
 
 if __name__ == '__main__':

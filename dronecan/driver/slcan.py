@@ -584,7 +584,15 @@ def _io_process(device,
         if RUNNING_ON_WINDOWS:
             return True             # TODO: Find a working solution for Windows (os.kill(ppid, 0) doesn't work)
         else:
-            return os.getppid() == parent_pid
+            # Can't compare os.getppid() to parent_pid: under the 'forkserver'
+            # start method (default on Linux from Python 3.14) the IO process is
+            # forked from the fork-server, so getppid() is the fork-server's pid.
+            # Check the recorded parent pid is still alive instead.
+            try:
+                os.kill(parent_pid, 0)
+            except OSError:
+                return False
+            return True
 
     try:
         _raise_self_process_priority()
