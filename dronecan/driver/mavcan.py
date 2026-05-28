@@ -10,6 +10,7 @@
 import os
 import sys
 import time
+import signal
 import multiprocessing
 from logging import getLogger
 from .common import DriverError, CANFrame, AbstractDriver
@@ -29,12 +30,34 @@ TX_QUEUE_SIZE = 1000
 
 logger = getLogger(__name__)
 kill_process = False
+
+
+def parent_process_alive(parent_pid):
+    '''check if the process that spawned us is still alive.
+
+    We can't compare os.getppid() to parent_pid: under the 'forkserver'
+    start method (the default on Linux from Python 3.14) the IO process is
+    forked from the fork-server, so getppid() returns the fork-server's pid,
+    not the bridge's. Check the recorded parent pid directly instead.'''
+    if sys.platform.startswith('win'):
+        return True             # os.kill(pid, 0) is unreliable on Windows
+    try:
+        os.kill(parent_pid, 0)
+    except OSError:
+        return False
+    return True
+
+
 class ControlMessage(object):
     def __init__(self, command, data):
         self.command = command
         self.data = data
 
 def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue, parent_pid):
+    # leave Ctrl-C (SIGINT) handling to the parent process; this daemon
+    # child is torn down when the parent exits
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     os.environ['MAVLINK20'] = '1'
 
     target_component = 0
@@ -127,7 +150,7 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
         if (not exit_queue.empty() and exit_queue.get() == "QUIT") or exit_proc:
             conn.close()
             return
-        if os.getppid() != parent_pid:
+        if not parent_process_alive(parent_pid):
             # ensure we die when parent dies
             conn.close()
             return
