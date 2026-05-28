@@ -66,10 +66,32 @@ try:
 except Exception:
     pass
 
-def io_process(url, tx_queue, rx_queue):
+def parent_process_alive(parent_pid):
+    '''check if the process that spawned us is still alive.
+
+    We can't compare os.getppid() to parent_pid: under the 'forkserver'
+    start method (the default on Linux from Python 3.14) the IO process is
+    forked from the fork-server, so getppid() returns the fork-server's pid,
+    not the parent's. Check the recorded parent pid directly instead.'''
+    if RUNNING_ON_WINDOWS:
+        return True             # os.kill(pid, 0) is unreliable on Windows
+    try:
+        os.kill(parent_pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def io_process(url, tx_queue, rx_queue, exit_queue, parent_pid):
     # leave Ctrl-C (SIGINT) handling to the parent process; this daemon
     # child is torn down when the parent exits
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    def should_exit():
+        '''return True when the parent has asked us to quit or has died'''
+        if not exit_queue.empty() and exit_queue.get() == "QUIT":
+            return True
+        return not parent_process_alive(parent_pid)
 
     port = None
     port_out = None
@@ -109,6 +131,12 @@ def io_process(url, tx_queue, rx_queue):
 
 
     while True:
+        if should_exit():
+            if port is not None:
+                port.close()
+            if port_out is not None:
+                port_out.close()
+            return
         if need_connect:
             time.sleep(0.1)
             need_connect = False
@@ -180,14 +208,18 @@ class mcast(AbstractDriver):
 
         self.rx_queue = multiprocessing.Queue(maxsize=RX_QUEUE_SIZE)
         self.tx_queue = multiprocessing.Queue(maxsize=TX_QUEUE_SIZE)
+        self.exit_queue = multiprocessing.Queue(maxsize=1)
 
         self.proc = multiprocessing.Process(target=io_process, name='mcast_io_process',
-                                            args=(url, self.tx_queue, self.rx_queue))
+                                            args=(url, self.tx_queue, self.rx_queue,
+                                                  self.exit_queue, os.getpid()))
         self.proc.daemon = True
         self.proc.start()
 
     def close(self):
-        pass
+        if self.proc is not None and self.proc.is_alive():
+            self.exit_queue.put_nowait("QUIT")
+            self.proc.join()
 
     def __del__(self):
         self.close()
