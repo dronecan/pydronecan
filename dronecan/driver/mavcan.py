@@ -10,6 +10,7 @@
 import os
 import sys
 import time
+import select
 import signal
 import multiprocessing
 from logging import getLogger
@@ -27,6 +28,7 @@ if 'darwin' in sys.platform:
 else:
     RX_QUEUE_SIZE = 1000000
 TX_QUEUE_SIZE = 1000
+CAN_TYPES = ['CAN_FRAME', 'CANFD_FRAME']
 
 logger = getLogger(__name__)
 kill_process = False
@@ -52,6 +54,21 @@ class ControlMessage(object):
     def __init__(self, command, data):
         self.command = command
         self.data = data
+
+
+def tx_wait_fd(tx_queue):
+    '''fd that becomes readable when a frame is queued for transmit.
+
+    Returns None where it cannot be used, in which case the IO loop
+    falls back to waiting on the link alone. select() on Windows only
+    accepts sockets, so the link and the queue cannot be waited on
+    together there.'''
+    if sys.platform.startswith('win'):
+        return None
+    try:
+        return tx_queue._reader.fileno()
+    except Exception:
+        return None
 
 def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue, parent_pid):
     # leave Ctrl-C (SIGINT) handling to the parent process; this daemon
@@ -146,6 +163,15 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
     connect()
     enable_can_forward()
 
+    tx_fd = tx_wait_fd(tx_queue)
+
+    def wait_set():
+        '''fds to wait on, or None to fall back to a blocking receive.
+        Recomputed each pass because reconnect() replaces conn.'''
+        if tx_fd is None or conn.fd is None:
+            return None
+        return [conn.fd, tx_fd]
+
     while True:
         if (not exit_queue.empty() and exit_queue.get() == "QUIT") or exit_proc:
             conn.close()
@@ -193,8 +219,22 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
             if time.time() - last_enable > 1:
                 enable_can_forward()
 
+        wait_fds = wait_set()
         try:
-            m = conn.recv_match(type=['CAN_FRAME','CANFD_FRAME'],blocking=True,timeout=0.005)
+            if wait_fds is None:
+                m = conn.recv_match(type=CAN_TYPES, blocking=True, timeout=0.005)
+            else:
+                # Wait on the link and the transmit queue together. A
+                # blocking receive here would hold a frame queued just
+                # after the drain above until the receive times out,
+                # putting milliseconds of latency on every frame we
+                # send. Take anything already parsed first, since the
+                # link fd is not readable while a decoded message sits
+                # in the connection's own buffer.
+                m = conn.recv_match(type=CAN_TYPES, blocking=False)
+                if m is None:
+                    select.select(wait_fds, [], [], 0.005)
+                    m = conn.recv_match(type=CAN_TYPES, blocking=False)
         except Exception as ex:
             reconnect()
             continue
