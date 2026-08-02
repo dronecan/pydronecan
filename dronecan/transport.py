@@ -25,6 +25,9 @@ except ImportError:
 import dronecan
 import dronecan.dsdl as dsdl
 import dronecan.dsdl.common as common
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 try:
@@ -893,9 +896,18 @@ class TransferManager(object):
     def receive_frame(self, frame):
         result = None
         key = frame.transfer_key
+        
+        # Clean up any stale transfers before processing new frames
+        self.remove_inactive_transfers(timeout=0.1)  # Much shorter timeout
+        
         if key in self.active_transfers or frame.start_of_transfer:
             # If the first frame was received, restart this transfer from scratch
             if frame.start_of_transfer:
+                if key in self.active_transfers:
+                    # Log when we're restarting an incomplete transfer (only for debugging)
+                    # logger.debug('Restarting incomplete transfer for key %r (had %d frames)', 
+                    #            key, len(self.active_transfers[key]))
+                    pass
                 self.active_transfers[key] = []
 
             self.active_transfers[key].append(frame)
@@ -911,7 +923,7 @@ class TransferManager(object):
 
     def remove_inactive_transfers(self, timeout=1.0):
         t = time.monotonic()
-        transfer_keys = self.active_transfers.keys()
+        transfer_keys = list(self.active_transfers.keys())  # Create a copy to avoid iteration issues
         for key in transfer_keys:
             if t - self.active_transfer_timestamps[key] > timeout:
                 del self.active_transfers[key]
