@@ -841,6 +841,8 @@ def parse_namespaces(source_dirs, search_dirs=None):
         [saturated uint48 UNKNOWN = 0, saturated uint48 USEC_PER_LSB = 100]
     """
 
+    print('parse_namespaces source_dirs=\'%s\' search_dirs=\'%s\'' % (source_dirs, search_dirs))
+
     # noinspection PyShadowingNames
     def walk(walk_dirs):
         import fnmatch
