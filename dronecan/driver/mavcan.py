@@ -70,7 +70,7 @@ def tx_wait_fd(tx_queue):
     except Exception:
         return None
 
-def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue, parent_pid):
+def io_process(url, bus, source_system, target_system, baudrate, tx_queue, rx_queue, exit_queue, parent_pid):
     # leave Ctrl-C (SIGINT) handling to the parent process; this daemon
     # child is torn down when the parent exits
     signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -87,8 +87,8 @@ def io_process(url, bus, target_system, baudrate, tx_queue, rx_queue, exit_queue
     readonly = False
 
     def connect():
-        nonlocal conn, baudrate, readonly
-        conn = mavutil.mavlink_connection(url, baud=baudrate, source_system=250,
+        nonlocal conn, baudrate, readonly, source_system
+        conn = mavutil.mavlink_connection(url, baud=baudrate, source_system=source_system,
                                           source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN,
                                           dialect='ardupilotmega')
         if conn is None:
@@ -266,6 +266,7 @@ class MAVCAN(AbstractDriver):
         super(MAVCAN, self).__init__()
         self.bus = kwargs.get('bus_number', 1) - 1
         self.target_system = kwargs.get('mavlink_target_system', 0)
+        self.source_system = kwargs.get('mavlink_source_system', 250)
         self.filter_list = None
         baudrate = kwargs.get('baudrate', 115200)
 
@@ -274,7 +275,7 @@ class MAVCAN(AbstractDriver):
         self.exit_queue = multiprocessing.Queue(maxsize=1)
 
         self.proc = multiprocessing.Process(target=io_process, name='mavcan_io_process',
-                                            args=(url, self.bus, self.target_system, baudrate,
+                                            args=(url, self.bus, self.source_system, self.target_system, baudrate,
                                             self.tx_queue, self.rx_queue, self.exit_queue, os.getpid()))
         self.proc.daemon = True
         self.proc.start()
@@ -311,10 +312,10 @@ class MAVCAN(AbstractDriver):
         self._tx_hook(frame)
         self.tx_queue.put_nowait(frame)
 
-    def is_mavlink_port(device_name, baudrate):
+    def is_mavlink_port(device_name, baudrate, source_system=250):
         '''check if a device is sending mavlink'''
         os.environ['MAVLINK20'] = '1'
-        conn = mavutil.mavlink_connection(device_name, baud=baudrate, source_system=250, source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN)
+        conn = mavutil.mavlink_connection(device_name, baud=baudrate, source_system=source_system, source_component=mavutil.mavlink.MAV_COMP_ID_MAVCAN)
         if not conn:
             return False
         m = conn.recv_match(blocking=True, type=['HEARTBEAT','ATTITUDE', 'SYS_STATUS'], timeout=1.1)
