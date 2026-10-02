@@ -97,12 +97,23 @@ class Scheduler(object):
         priority = 0
 
         def caller(scheduled_deadline):
-            # Event MUST be re-registered first in order to ensure that it can be cancelled from the callback
+            # Always reschedule first to maintain periodic timing
             scheduled_deadline += period_seconds
             event_holder[0] = self._scheduler.enterabs(scheduled_deadline, priority, caller, (scheduled_deadline,))
-            callback()
+            
+            # Prevent callback overlap that can cause runaway scheduling
+            if callback_running[0]:
+                # Skip this execution if previous callback is still running
+                return
+            
+            callback_running[0] = True
+            try:
+                callback()
+            finally:
+                callback_running[0] = False
 
         first_deadline = self._scheduler.timefunc() + period_seconds
+        callback_running = [False]
         event_holder = [self._scheduler.enterabs(first_deadline, priority, caller, (first_deadline,))]
         return self._make_sched_handle(lambda: event_holder[0])
 
@@ -438,7 +449,9 @@ class Node(Scheduler):
             while time.monotonic() < deadline:
                 execute_once()
         else:
-            while True:
+            # Process available frames with a reasonable limit to prevent GUI blocking
+            max_frames_per_spin = 100  # Limit frames processed per spin(0) call
+            while count < max_frames_per_spin:
                 frame = self._can_driver.receive(0)
                 if frame:
                     self._recv_frame(frame)
