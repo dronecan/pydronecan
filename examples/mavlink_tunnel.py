@@ -23,7 +23,10 @@ def main():
 
     # Listen for incoming connections
     tcp_sock.listen(1)
+    tcp_sock.settimeout(0.2)
     connection = None
+    connection_lock = threading.Lock()
+    stopping = threading.Event()
 
     def handle_Targetted(msg):
         '''handle Targetted message'''
@@ -33,8 +36,17 @@ def main():
 
         if msg.message.target_node == args.node_id:
             if msg.message.buffer:
-                if connection:
-                    connection.sendall(bytes(msg.message.buffer))
+                with connection_lock:
+                    client = connection
+                if client is not None:
+                    try:
+                        client.sendall(bytes(msg.message.buffer))
+                    except ConnectionError:
+                        pass  # The peer may have disconnected during the send.
+                    except OSError:
+                        with connection_lock:
+                            if connection is client and not stopping.is_set():
+                                raise
 
     def publish_NodeInfo():
         msg = dronecan.uavcan.protocol.NodeStatus()
@@ -67,21 +79,35 @@ def main():
 
     def tcp_server_loop():
         nonlocal connection
-        while True:
-            print(f'Waiting for GCS Connection on tcp:{args.tcp_host}:{args.tcp_port}...')
-            connection, client_address = tcp_sock.accept()
-            print("GCS connected")
-
+        print(f'Waiting for GCS Connection on tcp:{args.tcp_host}:{args.tcp_port}...')
+        while not stopping.is_set():
             try:
-                # Receive the data in small chunks and retransmit it
-                while True:
-                    data = connection.recv(1024)
-                    if data:
-                        publish_MavlinkMsg(data)
+                client, _ = tcp_sock.accept()
+            except socket.timeout:
+                continue
 
-            finally:
-                # Clean up the connection
-                connection.close()
+            with client:
+                with connection_lock:
+                    if stopping.is_set():
+                        return
+                    connection = client
+                print("GCS connected")
+                try:
+                    while not stopping.is_set():
+                        try:
+                            data = client.recv(1024)
+                        except ConnectionError:
+                            break
+                        except OSError:
+                            if not stopping.is_set():
+                                raise
+                            break
+                        if not data:
+                            break
+                        publish_MavlinkMsg(data)
+                finally:
+                    with connection_lock:
+                        connection = None
 
     # Initializing a DroneCAN node instance.
     node = dronecan.make_node(args.uri, node_id=args.node_id, bitrate=1000000)
@@ -100,9 +126,19 @@ def main():
     try:
         node.spin()
     except KeyboardInterrupt:
-        tcp_server_loop.join()
-        if connection:
-            connection.close()
+        pass
+    finally:
+        stopping.set()
+        with connection_lock:
+            if connection is not None:
+                # Wake the worker if it is waiting for data from a client.
+                try:
+                    connection.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass  # The peer may have disconnected already.
+        tcp_server_loop_thread.join()
+        tcp_sock.close()
+        node.close()
 
 
 if __name__ == '__main__':
